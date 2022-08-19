@@ -37,6 +37,54 @@
         list1->tail->next = list2;
         list1->tail = list2->tail;
     }
+
+    typedef struct Identifier
+    {
+        char *name;
+        struct Identifier *next;
+    } Identifier;
+
+    Identifier* makeId(char *name)
+    {
+        Identifier *temp = (Identifier*) malloc(sizeof(Identifier));
+        temp->name = strdup(name);
+        temp->next = NULL;
+        return temp;
+    }
+
+    typedef struct Macro
+    {
+        char *name;
+        Identifier *params_head, *params_tail;
+        Node *replacement;
+        struct Macro *next;
+    } Macro;
+
+    Macro* makeMacro(char *name)
+    {
+        Macro *temp = (Macro*) malloc(sizeof(Macro));
+        temp->name = strdup(name);
+        temp->params_head = temp->params_tail = NULL;
+        temp->replacement = NULL;
+        temp->next = NULL;
+    }
+
+    void addId(Macro *macro, Identifier *id)
+    {
+        if(macro->params_tail)
+        {
+            macro->params_tail->next = id;
+            macro->params_tail = id;
+        }
+        else
+        {
+            macro->params_head = macro->params_tail = id;
+        }
+    }
+
+
+    Macro *macro_table; //Something better?? Maybe a structure for a table?
+    
 %}
 
 

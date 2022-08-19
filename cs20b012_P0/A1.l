@@ -6,7 +6,7 @@ DIGIT [0-9]
 INTEGER {DIGIT}+
 LETTER [a-zA-Z_]
 IDENTIFIER {LETTER}({LETTER}|{DIGIT})*
-WHITESPACE [ \t\n]
+WHITESPACE [ \t\n\r]
 COMMENT "//".*
 
 %%
@@ -113,10 +113,7 @@ COMMENT "//".*
     yylval.data = strdup(yytext); return IDENTIFIER_T;
 }
 
-{COMMENT} {
-    // yylval.data = strdup(yytext); return COMMENT_T;
-    printf("%s\n", yytext);
-}
+{COMMENT} { }
 
 . { printf("Lexer error\n"); exit(1); }
 

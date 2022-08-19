@@ -10,8 +10,7 @@
 
     typedef struct Node
     {
-        struct Node *next;
-        // struct Node *prev;
+        struct Node *next, *tail;
         char *data;
         int type;
         /*
@@ -23,12 +22,20 @@
          */
     } Node;
 
-    Node* makeNode()
+    Node* makeNode(char *data)
     {
         Node *temp = (Node*) malloc(sizeof(Node));
         temp->next = NULL;
+        temp->tail = temp;
+        temp->data = strdup(data);
         temp->type  = 0;
         return temp;
+    }
+
+    void append(Node *list1, Node *list2)
+    {
+        list1->tail->next = list2;
+        list1->tail = list2->tail;
     }
 %}
 
@@ -41,7 +48,7 @@
 
 
 
-%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T COMMENT_T
+%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T
 %token <data> NOT_T EQ_T 
 %token <data> TRUE_T FALSE_T 
 %token <data> IF_T ELSE_T WHILE_T 
@@ -55,7 +62,7 @@
 %token <data> LSQBR_T RSQBR_T
 %token <data> LCURLY_T RCURLY_T
 
-%type <node> INTEGER IDENTIFIER OPERATOR COMMENT
+%type <node> INTEGER IDENTIFIER OPERATOR
 %type <node> NOT EQ 
 %type <node> TRUE FALSE 
 %type <node> IF ELSE WHILE 
@@ -69,13 +76,26 @@
 %type <node> LSQBR RSQBR
 %type <node> LCURLY RCURLY
 %type <node> mainClass expression primaryExp declarations typeDeclaration typeIdentifier method type methodDeclaration arguments stmt extraArgs statement
+%type <node> macros macroDefinition macroCall expressions extraExps macroDefExp macroDefStmt extraIDs macroStmtBlock
 
 %%
 
 
-goal: mainClass declarations
+goal: macros mainClass declarations
 {
     Node *curr = $1;
+    while(curr)
+    {
+        printf("%s\n", curr->data);
+        curr = curr->next;
+    }
+    curr = $2;
+    while(curr)
+    {
+        printf("%s\n", curr->data);
+        curr = curr->next;
+    }
+    curr = $3;
     while(curr)
     {
         printf("%s\n", curr->data);
@@ -84,165 +104,121 @@ goal: mainClass declarations
 }
 ;
 
+macros: 
+{   $$ = makeNode("");  }
+
+      | macroDefinition macros
+{   append($1, $2);
+    $$ = $1;    }
+;
+
 declarations:
-{   $$ = makeNode();
-    $$->data = strdup("");  }
+{   $$ = makeNode("");  }
 
             | typeDeclaration declarations
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
+{   append($1, $2);
     $$ = $1;    }
+;    
 
 mainClass: CLASS IDENTIFIER LCURLY PUBLIC STATIC VOID MAIN LPAREN STRING LSQBR RSQBR IDENTIFIER RPAREN LCURLY PRINT LPAREN expression RPAREN SCOLON RCURLY RCURLY
-{   $1->next = $2;
-    $2->next = $3;
-    $3->next = $4;
-    $4->next = $5;
-    $5->next = $6;
-    $6->next = $7;
-    $7->next = $8;
-    $8->next = $9;
-    $9->next = $10;
-    $10->next = $11;
-    $11->next = $12;
-    $12->next = $13;
-    $13->next = $14;
-    $14->next = $15;
-    $15->next = $16;
-    $16->next = $17;
-    Node *last = $17;
-    while(last->next)
-        last = last->next;
-    last->next = $18;
-    $18->next = $19;
-    $19->next = $20;
-    $20->next = $21;
+{   append($20, $21);
+    append($19, $20);
+    append($18, $19);
+    append($17, $18);
+    append($16, $17);
+    append($15, $16);
+    append($14, $15);
+    append($13, $14);
+    append($12, $13);
+    append($11, $12);
+    append($10, $11);
+    append($9, $10);
+    append($8, $9);
+    append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 typeDeclaration: CLASS IDENTIFIER LCURLY typeIdentifier method RCURLY
-{   $1->next = $2;
-    $2->next = $3;
-    $3->next = $4;
-    Node *last = $4;
-    while(last->next)
-        last = last->next;
-    last->next = $5;
-    last = $5;
-    while(last->next)
-        last = last->next;
-    last->next = $6;
+{   append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
                | CLASS IDENTIFIER EXTENDS IDENTIFIER LCURLY typeIdentifier method RCURLY
-{   $1->next = $2;
-    $2->next = $3;
-    $3->next = $4;
-    $4->next = $5;
-    $5->next = $6;
-    Node *last = $6;
-    while(last->next)
-        last = last->next;
-    last->next = $7;
-    last = $7;
-    while(last->next)
-        last = last->next;
-    last->next = $8;
+{   append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 typeIdentifier: 
-{   $$ = makeNode();
-    $$->data = strdup("");  }
+{   $$ = makeNode("");  }
 
               | typeIdentifier type IDENTIFIER SCOLON 
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
-    last = $2;
-    while(last->next)
-        last = last->next;
-    last->next = $3;
-    $3->next = $4;
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 method: 
-{   $$ = makeNode();
-    $$->data = strdup("");  }
+{   $$ = makeNode("");  }
 
       | methodDeclaration method
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
+{   append($1, $2);
     $$ = $1;    }
 ;
 
 methodDeclaration: PUBLIC type IDENTIFIER LPAREN arguments RPAREN LCURLY typeIdentifier stmt RETURN expression SCOLON RCURLY
-{   $1->next = $2;
-    Node *last = $2;
-    while(last->next)
-        last = last->next;
-    last->next = $3;
-    $3->next = $4;
-    $4->next = $5;
-    last = $5;
-    while(last->next)
-        last = last->next;
-    last->next = $6;
-    $6->next = $7;
-    $7->next = $8;
-    last = $8;
-    while(last->next)
-        last->next = last;
-    last->next = $9;
-    last = $9;
-    while(last->next)
-        last->next = last;
-    last->next = $10;
-    $10->next = $11;
-    last = $11;
-    while(last->next)
-        last = last->next;
-    last->next = $12;
-    $12->next = $13;
+{   append($12, $13);
+    append($11, $12);
+    append($10, $11);
+    append($9, $10);
+    append($8, $9);
+    append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 arguments:
-{   $$ = makeNode();
-    $$->data = strdup("");  } 
+{   $$ = makeNode("");  } 
 
          | type IDENTIFIER extraArgs
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
-    $2->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 extraArgs: 
-{   $$ = makeNode();
-    $$->data = strdup("");  }
+{   $$ = makeNode("");  }
 
          | COMMA type IDENTIFIER extraArgs
-{   $1->next = $2;
-    Node *last = $2;
-    while(last->next)
-        last = last->next;
-    last->next = $3;
-    $3->next = $4;
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 type: INT LSQBR RSQBR
-{   $1->next = $2;
-    $2->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
     | BOOL
@@ -256,127 +232,119 @@ type: INT LSQBR RSQBR
 ;
 
 stmt:
-{   $$ = makeNode();
-    $$->data = strdup("");  } 
+{   $$ = makeNode("");  } 
 
     | statement stmt
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
+{   append($1, $2);
     $$ = $1;    }
 ;
 
 statement: LCURLY stmt RCURLY
-{   $1->next = $2;
-    Node *last = $2;
-    while(last->next)
-        last = last->next;
-    last->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
          | PRINT LPAREN expression RPAREN SCOLON
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
-    $4->next = $5;
+{   append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    } 
 
          | IDENTIFIER EQ expression SCOLON
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
          | IDENTIFIER LSQBR expression RSQBR EQ expression SCOLON
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
-    $4->next = $5;
-    $5->next = $6;
-    last = $6;
-    while(last->next)
-        last = last->next;
-    last->next = $7;
+{   append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
          | IF LPAREN expression RPAREN statement
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
-    $4->next = $5;
+{   append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
          | IF LPAREN expression RPAREN statement ELSE statement
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
-    $4->next = $5;
-    last = $5;
-    while(last->next)
-        last = last->next;
-    last->next = $6;
-    $6->next = $7;
+{   append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
          | WHILE LPAREN expression RPAREN statement
-{   $1->next = $2;
-    $2->next = $3;
-    Node *last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
-    $4->next = $5;
+{   append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+         | macroCall SCOLON
+{   append($1, $2);
+    $$ = $1;    }
+;
+
+macroCall: IDENTIFIER LPAREN expressions RPAREN
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+;
+
+expressions: 
+{   $$ = makeNode("");  }
+           | expression extraExps
+{   append($1, $2);
+    $$ = $1;    }
+;
+
+extraExps: 
+{   $$ = makeNode("");  }
+         | COMMA expression extraExps
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
 expression: primaryExp OPERATOR primaryExp
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
-    $2->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
           
           | primaryExp LSQBR primaryExp RSQBR
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
-    $2->next = $3;
-    last = $3;
-    while(last->next)
-        last = last->next;
-    last->next = $4;
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
           
           | primaryExp DOT LENGTH
-{   Node *last = $1;
-    while(last->next)
-        last = last->next;
-    last->next = $2;
-    $2->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
           
           | primaryExp
 {   $$ = $1;    }
 
-          | //One more to implement!!
+          | primaryExp DOT IDENTIFIER LPAREN expressions RPAREN
+{   append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+          | macroCall
+{   $$ = $1;    }
 ;
 
 primaryExp: INTEGER
@@ -395,201 +363,297 @@ primaryExp: INTEGER
 {   $$ = $1;    }
 
           | NEW INT LSQBR expression RSQBR
-{   $1->next = $2;
-    $2->next = $3;
-    $3->next = $4;
-    Node *last = $4;
-    while(last->next)
-        last = last->next;
-    last->next = $5;
-    $$ = $5;    }
+{   append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
 
           | NEW IDENTIFIER LPAREN RPAREN
-{   $1->next = $2;
-    $2->next = $3;
-    $3->next = $4;
+{   append($3, $4);
+    append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 
           | NOT expression
-{   $1->next = $2;
+{   append($1, $2);
     $$ = $1;    }
 
           | LPAREN expression RPAREN
-{   $1->next = $2;
-    Node *last = $2;
-    while(last->next)
-        last = last->next;
-    last->next = $3;
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
+macroDefinition: macroDefExp
+{   $$ = $1;    }
 
-COMMENT: COMMENT_T
-{   printf("%s\n", $$); }
+               | macroDefStmt
+{   $$ = $1;    }
+;
+
+macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN macroStmtBlock
+{   append($10, $11);
+    append($9, $10);
+    append($8, $9);
+    append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+            | DEFS0 IDENTIFIER LPAREN RPAREN macroStmtBlock
+{   append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+            | DEFS1 IDENTIFIER LPAREN IDENTIFIER RPAREN macroStmtBlock
+{   append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+            | DEFS2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN macroStmtBlock
+{   append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+;
+
+macroStmtBlock: LCURLY stmt RCURLY
+{   append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+;
+
+extraIDs: 
+{   $$ = makeNode("");  }
+
+        | COMMA IDENTIFIER
+{   append($1, $2);
+    $$ = $1;    }
+;
+
+macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN LPAREN expression RPAREN
+{   append($12, $13);
+    append($11, $12);
+    append($10, $11);
+    append($9, $10);
+    append($8, $9);
+    append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+           | DEFE0 IDENTIFIER LPAREN RPAREN LPAREN expression RPAREN
+{   append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+           | DEFE1 IDENTIFIER LPAREN IDENTIFIER RPAREN LPAREN expression RPAREN
+{   append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+
+           | DEFE2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN LPAREN expression RPAREN
+{   append($9, $10);
+    append($8, $9);
+    append($7, $8);
+    append($6, $7);
+    append($5, $6);
+    append($4, $5);
+    append($3, $4);
+    append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
 ;
 
 LPAREN: LPAREN_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1); }
 ;
 
 RPAREN: RPAREN_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1); }
 ;
 
 LSQBR: LSQBR_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1); }
 ;
 
 RSQBR: RSQBR_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 LCURLY: LCURLY_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 RCURLY: RCURLY_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFS0: DEFS0_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFS1: DEFS1_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFS2: DEFS2_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFS: DEFS_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFE0: DEFE0_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFE1: DEFE1_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFE2: DEFE2_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DEFE: DEFE_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 TRUE: TRUE_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 FALSE: FALSE_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 THIS: THIS_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 IF: IF_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 ELSE: ELSE_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 WHILE: WHILE_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 NEW: NEW_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 LENGTH: LENGTH_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 INT: INT_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 BOOL: BOOL_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 CLASS: CLASS_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 STRING: STRING_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 PUBLIC: PUBLIC_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 STATIC: STATIC_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 VOID: VOID_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 MAIN: MAIN_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 EXTENDS: EXTENDS_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 RETURN: RETURN_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 PRINT: PRINT_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 OPERATOR: OPERATOR_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 NOT: NOT_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 EQ: EQ_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 DOT: DOT_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 SCOLON: SCOLON_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 COMMA: COMMA_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 INTEGER: INTEGER_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 IDENTIFIER: IDENTIFIER_T
-{   $$ = makeNode(); $$->data = strdup($1); }
+{   $$ = makeNode($1);  }
 ;
 
 %%
@@ -601,6 +665,10 @@ void yyerror (const char *s) {
 }
 
 int main() {
+    // #ifdef YYDEBUG
+    // yydebug = 1;
+    // #endif
+
     yyparse();
     return 0;
 }

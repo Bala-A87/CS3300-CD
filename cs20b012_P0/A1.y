@@ -128,6 +128,18 @@
             table->head = table->tail = macro;
         }
     }
+
+    Macro* findMacro(macroTable *table, char *macroName)
+    {
+        Macro *currMacro = table->head;
+        while(currMacro)
+        {
+            if(!strcmp(currMacro->name, macroName))
+                return currMacro;
+            currMacro = currMacro->next;
+        }
+        return NULL;
+    }
     
     int tab_count = 0;
     int tab_flag = 0;
@@ -177,69 +189,8 @@
 
 goal: macros mainClass declarations
 {
-    Node *curr = $1;
-    while(curr)
-    {
-        if(!strcmp(curr->data, "}"))
-            tab_count--;
-        if(tab_flag)
-        {
-            for(int i = 0; i < tab_count; i++)
-                printf("\t");
-            tab_flag = 0;
-        }
-        if(strcmp(curr->data, "") != 0)
-            printf("%s ", curr->data);
-        if(!strcmp(curr->data, ";"))
-        {
-            printf("\n");
-            tab_flag = 1;
-        }
-        else if(!strcmp(curr->data, "{"))
-        {
-            printf("\n");
-            tab_count++;
-            tab_flag = 1;
-        }
-        else if(!strcmp(curr->data, "}"))
-        {
-            printf("\n");
-            tab_flag = 1;
-        }
-        curr = curr->next;
-    }
-    curr = $2;
-    while(curr)
-    {
-        if(!strcmp(curr->data, "}"))
-            tab_count--;
-        if(tab_flag)
-        {
-            for(int i = 0; i < tab_count; i++)
-                printf("\t");
-            tab_flag = 0;
-        }
-        if(strcmp(curr->data, "") != 0)
-            printf("%s ", curr->data);
-        if(!strcmp(curr->data, ";"))
-        {
-            printf("\n");
-            tab_flag = 1;
-        }
-        else if(!strcmp(curr->data, "{"))
-        {
-            printf("\n");
-            tab_count++;
-            tab_flag = 1;
-        }
-        else if(!strcmp(curr->data, "}"))
-        {
-            printf("\n");
-            tab_flag = 1;
-        }
-        curr = curr->next;
-    }
-    curr = $3;
+    append($2, $3);
+    Node *curr = $2;
     while(curr)
     {
         if(!strcmp(curr->data, "}"))
@@ -464,10 +415,84 @@ statement: LCURLY stmt RCURLY
 ;
 
 macroCall: IDENTIFIER LPAREN expressions RPAREN
-{   append($3, $4);
-    append($2, $3);
-    append($1, $2);
-    $$ = $1;    }
+{   fprintf(stderr, "\n\n\n\nEntered macro call for %s\n\n\n\n", $1->data);
+    Macro *reqMacro = findMacro(Macros, $1->data);
+    fprintf(stderr, "\n\n\n\nFound macro %s\n\n\n\n", reqMacro->name);
+    //Test for validity (i.e., check if non-NULL)
+    Identifier *args = NULL, *curr = NULL;
+    Node *exps = $3;
+    char* argName = strdup("");
+    while(exps)
+    {
+        if(!strcmp(exps->data, "$"))
+        {
+            Identifier *nextArg = makeId(argName);
+            if(!curr)
+            {
+                args = curr = nextArg;
+            }
+            else
+            {
+                curr->next = nextArg;
+                curr = nextArg;
+            }
+            argName = strdup("");
+        }
+        else
+        {
+            strncat(argName, exps->data, strlen(exps->data));
+        }
+        exps = exps->next;
+    }
+    if(!strcmp(argName, ""))
+    {
+        Identifier *nextArg = makeId(argName);
+        if(!curr)
+        {
+            args = curr = nextArg;
+        }
+        else
+        {
+            curr->next = nextArg;
+            curr = nextArg;
+        }
+    }
+    Node *macroText = NULL, *textHead = NULL;
+    Node *macroRep = reqMacro->replacement;
+    Identifier *macroArgs = reqMacro->params_head;
+    while(macroRep)
+    {
+        Identifier *currMacroArg = macroArgs;
+        curr = args;
+        while(currMacroArg)
+        {
+            if(!strcmp(currMacroArg->name, macroRep->data))
+                break;
+            curr = curr->next;
+            currMacroArg = currMacroArg->next;
+        }
+        Node *nextText;
+        if(curr)
+        {
+            nextText = makeNode(curr->name);
+        }
+        else
+        {
+            nextText = makeNode(macroRep->data);
+        }
+        if(macroText)
+        {
+            macroText->next = nextText;
+            macroText = nextText;
+        }
+        else
+        {
+            textHead = macroText = nextText;
+        }
+        macroRep = macroRep->next;
+    }
+    $$ = textHead;
+}
 ;
 
 expressions: 
@@ -482,6 +507,7 @@ extraExps:
          | COMMA expression extraExps
 {   append($2, $3);
     append($1, $2);
+    $1->data = strdup("$");
     $$ = $1;    }
 ;
 
@@ -886,32 +912,32 @@ void yyerror (const char *s) {
 }
 
 int main() {
-    #ifdef YYDEBUG
-    yydebug = 1;
-    #endif
+    // #ifdef YYDEBUG
+    // yydebug = 1;
+    // #endif
 
     Macros = makeTable();
     yyparse();
-    Macro *curr = Macros->head;
-    while(curr)
-    {
-        printf("%s\n", curr->name);
-        Identifier *currID = curr->params_head;
-        while(currID)
-        {
-            printf("%s ", currID->name);
-            currID = currID->next;
-        }
-        printf("\n");
-        Node *rep = curr->replacement;
-        while(rep)
-        {
-            printf("%s ", rep->data);
-            rep = rep->next;
-        }
-        printf("\n");
-        curr = curr->next;
-    }
+    // Macro *curr = Macros->head;
+    // while(curr)
+    // {
+    //     printf("%s\n", curr->name);
+    //     Identifier *currID = curr->params_head;
+    //     while(currID)
+    //     {
+    //         printf("%s ", currID->name);
+    //         currID = currID->next;
+    //     }
+    //     printf("\n");
+    //     Node *rep = curr->replacement;
+    //     while(rep)
+    //     {
+    //         printf("%s ", rep->data);
+    //         rep = rep->next;
+    //     }
+    //     printf("\n");
+    //     curr = curr->next;
+    // }
     return 0;
 }
 

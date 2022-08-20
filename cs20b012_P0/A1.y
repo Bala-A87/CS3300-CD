@@ -444,7 +444,7 @@ macroCall: IDENTIFIER LPAREN expressions RPAREN
         }
         exps = exps->next;
     }
-    if(!strcmp(argName, ""))
+    if(strcmp(argName, ""))
     {
         Identifier *nextArg = makeId(argName);
         if(!curr)

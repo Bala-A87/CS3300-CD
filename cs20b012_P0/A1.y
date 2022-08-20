@@ -85,6 +85,8 @@
 
     Macro *macro_table; //Something better?? Maybe a structure for a table?
     
+    int tab_count = 0;
+    int tab_flag = 0;
 %}
 
 
@@ -134,19 +136,91 @@ goal: macros mainClass declarations
     Node *curr = $1;
     while(curr)
     {
-        printf("%s\n", curr->data);
+        if(!strcmp(curr->data, "}"))
+            tab_count--;
+        if(tab_flag)
+        {
+            for(int i = 0; i < tab_count; i++)
+                printf("\t");
+            tab_flag = 0;
+        }
+        printf("%s ", curr->data);
+        if(!strcmp(curr->data, ";"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "{"))
+        {
+            printf("\n");
+            tab_count++;
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "}"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
         curr = curr->next;
     }
     curr = $2;
     while(curr)
     {
-        printf("%s\n", curr->data);
+        if(!strcmp(curr->data, "}"))
+            tab_count--;
+        if(tab_flag)
+        {
+            for(int i = 0; i < tab_count; i++)
+                printf("\t");
+            tab_flag = 0;
+        }
+        printf("%s ", curr->data);
+        if(!strcmp(curr->data, ";"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "{"))
+        {
+            printf("\n");
+            tab_count++;
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "}"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
         curr = curr->next;
     }
     curr = $3;
     while(curr)
     {
-        printf("%s\n", curr->data);
+        if(!strcmp(curr->data, "}"))
+            tab_count--;
+        if(tab_flag)
+        {
+            for(int i = 0; i < tab_count; i++)
+                printf("\t");
+            tab_flag = 0;
+        }
+        printf("%s ", curr->data);
+        if(!strcmp(curr->data, ";"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "{"))
+        {
+            printf("\n");
+            tab_count++;
+            tab_flag = 1;
+        }
+        else if(!strcmp(curr->data, "}"))
+        {
+            printf("\n");
+            tab_flag = 1;
+        }
         curr = curr->next;
     }
 }

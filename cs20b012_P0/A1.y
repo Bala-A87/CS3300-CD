@@ -82,8 +82,52 @@
         }
     }
 
+    void createReplacement(Macro *macro, Node *replacement)
+    {
+        Node *head = NULL, *tail = NULL;
+        Node *curr = replacement;
+        while(curr)
+        {
+            if(tail)
+            {
+                append(tail, makeNode(curr->data));
+                tail = tail->next;
+            }
+            else
+            {
+                head = makeNode(curr->data);
+                tail = head;
+            }
+            curr = curr->next;
+        }
+        macro->replacement = head;
+    }
 
-    Macro *macro_table; //Something better?? Maybe a structure for a table?
+    typedef struct macroTable
+    {
+        Macro *head, *tail;
+    } macroTable;
+
+    macroTable* makeTable()
+    {
+        macroTable *table = (macroTable*) (malloc(sizeof(macroTable)));
+        table->head = table->tail = NULL;
+    }
+
+    macroTable *Macros = NULL;
+
+    void addMacro(macroTable *table, Macro *macro)
+    {
+        if(table->tail)
+        {
+            table->tail->next = macro;
+            table->tail = macro;
+        }
+        else
+        {
+            table->head = table->tail = macro;
+        }
+    }
     
     int tab_count = 0;
     int tab_flag = 0;
@@ -144,7 +188,8 @@ goal: macros mainClass declarations
                 printf("\t");
             tab_flag = 0;
         }
-        printf("%s ", curr->data);
+        if(strcmp(curr->data, "") != 0)
+            printf("%s ", curr->data);
         if(!strcmp(curr->data, ";"))
         {
             printf("\n");
@@ -174,7 +219,8 @@ goal: macros mainClass declarations
                 printf("\t");
             tab_flag = 0;
         }
-        printf("%s ", curr->data);
+        if(strcmp(curr->data, "") != 0)
+            printf("%s ", curr->data);
         if(!strcmp(curr->data, ";"))
         {
             printf("\n");
@@ -204,7 +250,8 @@ goal: macros mainClass declarations
                 printf("\t");
             tab_flag = 0;
         }
-        printf("%s ", curr->data);
+        if(strcmp(curr->data, "") != 0)
+            printf("%s ", curr->data);
         if(!strcmp(curr->data, ";"))
         {
             printf("\n");
@@ -515,7 +562,21 @@ macroDefinition: macroDefExp
 ;
 
 macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN macroStmtBlock
-{   append($10, $11);
+{   
+    Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    addId(newMacro, makeId($6->data));
+    addId(newMacro, makeId($8->data));
+    Node *extras = $9;
+    while(extras)
+    {
+        if(strcmp(extras->data, "") && strcmp(extras->data, ","))
+            addId(newMacro, makeId(extras->data));
+        extras = extras->next;
+    }
+    createReplacement(newMacro, $11);
+    addMacro(Macros, newMacro);
+    append($10, $11);
     append($9, $10);
     append($8, $9);
     append($7, $8);
@@ -528,14 +589,21 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
     $$ = $1;    }
 
             | DEFS0 IDENTIFIER LPAREN RPAREN macroStmtBlock
-{   append($4, $5);
+{   Macro *newMacro = makeMacro($2->data);
+    createReplacement(newMacro, $5);
+    addMacro(Macros, newMacro);
+    append($4, $5);
     append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
             | DEFS1 IDENTIFIER LPAREN IDENTIFIER RPAREN macroStmtBlock
-{   append($5, $6);
+{   Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    createReplacement(newMacro, $6);
+    addMacro(Macros, newMacro);
+    append($5, $6);
     append($4, $5);
     append($3, $4);
     append($2, $3);
@@ -543,7 +611,12 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
     $$ = $1;    }
 
             | DEFS2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN macroStmtBlock
-{   append($7, $8);
+{   Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    addId(newMacro, makeId($6->data));
+    createReplacement(newMacro, $8);
+    addMacro(Macros, newMacro);
+    append($7, $8);
     append($6, $7);
     append($5, $6);
     append($4, $5);
@@ -568,7 +641,20 @@ extraIDs:
 ;
 
 macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN LPAREN expression RPAREN
-{   append($12, $13);
+{   Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    addId(newMacro, makeId($6->data));
+    addId(newMacro, makeId($8->data));
+    Node *extras = $9;
+    while(extras)
+    {
+        if(strcmp(extras->data, "") && strcmp(extras->data, ","))
+            addId(newMacro, makeId(extras->data));
+        extras = extras->next;
+    }
+    createReplacement(newMacro, $12);
+    addMacro(Macros, newMacro);
+    append($12, $13);
     append($11, $12);
     append($10, $11);
     append($9, $10);
@@ -583,7 +669,10 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     $$ = $1;    }
 
            | DEFE0 IDENTIFIER LPAREN RPAREN LPAREN expression RPAREN
-{   append($6, $7);
+{   Macro *newMacro = makeMacro($2->data);
+    createReplacement(newMacro, $6);
+    addMacro(Macros, newMacro);
+    append($6, $7);
     append($5, $6);
     append($4, $5);
     append($3, $4);
@@ -592,7 +681,11 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     $$ = $1;    }
 
            | DEFE1 IDENTIFIER LPAREN IDENTIFIER RPAREN LPAREN expression RPAREN
-{   append($7, $8);
+{   Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    createReplacement(newMacro, $7);
+    addMacro(Macros, newMacro);
+    append($7, $8);
     append($6, $7);
     append($5, $6);
     append($4, $5);
@@ -602,7 +695,12 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     $$ = $1;    }
 
            | DEFE2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN LPAREN expression RPAREN
-{   append($9, $10);
+{   Macro *newMacro = makeMacro($2->data);
+    addId(newMacro, makeId($4->data));
+    addId(newMacro, makeId($6->data));
+    createReplacement(newMacro, $9);
+    addMacro(Macros, newMacro);
+    append($9, $10);
     append($8, $9);
     append($7, $8);
     append($6, $7);
@@ -787,11 +885,32 @@ void yyerror (const char *s) {
 }
 
 int main() {
-    // #ifdef YYDEBUG
-    // yydebug = 1;
-    // #endif
+    #ifdef YYDEBUG
+    yydebug = 1;
+    #endif
 
+    Macros = makeTable();
     yyparse();
+    Macro *curr = Macros->head;
+    while(curr)
+    {
+        printf("%s\n", curr->name);
+        Identifier *currID = curr->params_head;
+        while(currID)
+        {
+            printf("%s ", currID->name);
+            currID = currID->next;
+        }
+        printf("\n");
+        Node *rep = curr->replacement;
+        while(rep)
+        {
+            printf("%s ", rep->data);
+            rep = rep->next;
+        }
+        printf("\n");
+        curr = curr->next;
+    }
     return 0;
 }
 

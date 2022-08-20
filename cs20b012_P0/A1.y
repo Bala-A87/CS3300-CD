@@ -635,8 +635,9 @@ macroStmtBlock: LCURLY stmt RCURLY
 extraIDs: 
 {   $$ = makeNode("");  }
 
-        | COMMA IDENTIFIER
-{   append($1, $2);
+        | COMMA IDENTIFIER extraIDs
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 

@@ -39,11 +39,11 @@ COMMENT "//".*
 
 "#defineExpr" { yylval.data = strdup(yytext); return DEFE_T; }
 
-"true" { yylval.data = strdup(yytext); return TRUE_T; }
+"true" { yylval.data = strdup(yytext); return TF_THIS_T; }
 
-"false" { yylval.data = strdup(yytext); return FALSE_T; }
+"false" { yylval.data = strdup(yytext); return TF_THIS_T; }
 
-"this" { yylval.data = strdup(yytext); return THIS_T; }
+"this" { yylval.data = strdup(yytext); return TF_THIS_T; }
 
 "if" { yylval.data = strdup(yytext); return IF_T; }
 

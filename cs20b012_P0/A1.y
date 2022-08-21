@@ -6,14 +6,12 @@
     int yylex(void);
     void yyerror(const char *);
 
-    typedef struct Node
-    {
+    typedef struct Node {
         struct Node *next, *tail;
         char *data;
     } Node;
 
-    Node* makeNode(char *data)
-    {
+    Node* makeNode(char *data) {
         Node *temp = (Node*) malloc(sizeof(Node));
         temp->next = NULL;
         temp->tail = temp;
@@ -21,36 +19,31 @@
         return temp;
     }
 
-    void append(Node *list1, Node *list2)
-    {
+    void append(Node *list1, Node *list2) {
         list1->tail->next = list2;
         list1->tail = list2->tail;
     }
 
-    typedef struct Identifier
-    {
+    typedef struct Identifier {
         char *name;
         struct Identifier *next;
     } Identifier;
 
-    Identifier* makeId(char *name)
-    {
+    Identifier* makeId(char *name) {
         Identifier *temp = (Identifier*) malloc(sizeof(Identifier));
         temp->name = strdup(name);
         temp->next = NULL;
         return temp;
     }
 
-    typedef struct Macro
-    {
+    typedef struct Macro {
         char *name;
         Identifier *params_head, *params_tail;
         Node *replacement;
         struct Macro *next;
     } Macro;
 
-    Macro* makeMacro(char *name)
-    {
+    Macro* makeMacro(char *name) {
         Macro *temp = (Macro*) malloc(sizeof(Macro));
         temp->name = strdup(name);
         temp->params_head = temp->params_tail = NULL;
@@ -58,8 +51,7 @@
         temp->next = NULL;
     }
 
-    void addId(Macro *macro, Identifier *id)
-    {
+    void addId(Macro *macro, Identifier *id) {
         if(macro->params_tail)
         {
             macro->params_tail->next = id;
@@ -71,8 +63,7 @@
         }
     }
 
-    void createReplacement(Macro *macro, Node *replacement)
-    {
+    void createReplacement(Macro *macro, Node *replacement) {
         Node *head = NULL, *tail = NULL;
         Node *curr = replacement;
         while(curr)
@@ -92,21 +83,18 @@
         macro->replacement = head;
     }
 
-    typedef struct macroTable
-    {
+    typedef struct macroTable {
         Macro *head, *tail;
     } macroTable;
 
-    macroTable* makeTable()
-    {
+    macroTable* makeTable() {
         macroTable *table = (macroTable*) (malloc(sizeof(macroTable)));
         table->head = table->tail = NULL;
     }
 
     macroTable *Macros = NULL;
 
-    void addMacro(macroTable *table, Macro *macro)
-    {
+    void addMacro(macroTable *table, Macro *macro) {
         if(table->tail)
         {
             table->tail->next = macro;
@@ -118,8 +106,7 @@
         }
     }
 
-    Macro* findMacro(macroTable *table, char *macroName)
-    {
+    Macro* findMacro(macroTable *table, char *macroName) {
         Macro *currMacro = table->head;
         while(currMacro)
         {
@@ -132,6 +119,7 @@
     
     int tab_count = 0;
     int tab_flag = 0;
+    int rcurly_count = 0;
 %}
 
 
@@ -141,13 +129,10 @@
     Node *node;
 }
 
-
-
-%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T
+%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T TF_THIS_T
 %token <data> NOT_T EQ_T 
-%token <data> TRUE_T FALSE_T 
 %token <data> IF_T ELSE_T WHILE_T 
-%token <data> NEW_T LENGTH_T PRINT_T THIS_T
+%token <data> NEW_T LENGTH_T PRINT_T
 %token <data> INT_T BOOL_T STRING_T
 %token <data> DOT_T SCOLON_T COMMA_T 
 %token <data> CLASS_T PUBLIC_T STATIC_T VOID_T MAIN_T EXTENDS_T RETURN_T
@@ -159,9 +144,8 @@
 
 %type <node> INTEGER IDENTIFIER OPERATOR
 %type <node> NOT EQ 
-%type <node> TRUE FALSE 
 %type <node> IF ELSE WHILE 
-%type <node> NEW LENGTH PRINT THIS
+%type <node> NEW LENGTH PRINT TF_THIS
 %type <node> INT BOOL STRING
 %type <node> DOT SCOLON COMMA 
 %type <node> CLASS PUBLIC STATIC VOID MAIN EXTENDS RETURN
@@ -171,7 +155,7 @@
 %type <node> LSQBR RSQBR
 %type <node> LCURLY RCURLY
 %type <node> mainClass expression primaryExp declarations typeDeclaration typeIdentifier method type methodDeclaration arguments stmt extraArgs statement
-%type <node> macros macroDefinition macroCall expressions extraExps macroDefExp macroDefStmt extraIDs macroStmtBlock
+%type <node> macros macroDefinition macroCall expressions extraExps macroDefExp macroDefStmt extraIDs macroStmtBlock macroDefBlock callExpressions extraCallExps
 
 %%
 
@@ -180,35 +164,40 @@ goal: macros mainClass declarations
 {
     append($2, $3);
     Node *curr = $2;
-    while(curr)
-    {
+    while(curr) {
+        if(!strcmp(curr->data, "")) {
+            curr = curr->next;
+            continue;
+        }
         if(!strcmp(curr->data, "}"))
             tab_count--;
-        if(tab_flag)
-        {
+        else if(rcurly_count) {
+            printf("\n");
+            rcurly_count = 0;
+        }
+        if(tab_flag) {
             for(int i = 0; i < tab_count; i++)
                 printf("\t");
             tab_flag = 0;
         }
-        if(strcmp(curr->data, "") != 0)
-            printf("%s ", curr->data);
-        if(!strcmp(curr->data, ";"))
-        {
+        printf("%s ", curr->data);
+        if(!strcmp(curr->data, ";")) {
             printf("\n");
             tab_flag = 1;
         }
-        else if(!strcmp(curr->data, "{"))
-        {
+        else if(!strcmp(curr->data, "{")) {
             printf("\n");
             tab_count++;
             tab_flag = 1;
         }
-        else if(!strcmp(curr->data, "}"))
-        {
+        else if(!strcmp(curr->data, "}")) {
+            rcurly_count++;
             printf("\n");
             tab_flag = 1;
         }
+        Node *temp = curr;
         curr = curr->next;
+        free(temp);
     }
 }
 ;
@@ -399,59 +388,35 @@ statement: LCURLY stmt RCURLY
     $$ = $1;    }
 
          | macroCall SCOLON
-{   append($1, $2);
-    $$ = $1;    }
+{   $$ = $1;    }
 ;
 
-macroCall: IDENTIFIER LPAREN expressions RPAREN
+macroCall: IDENTIFIER LPAREN callExpressions RPAREN
 {   $$ = NULL;
-    Macro *reqMacro = findMacro(Macros, $1->data);
-    Identifier *args = NULL, *curr = NULL;
+    Macro *reqMacro = findMacro(Macros, $1->data), *dummyMacro = makeMacro("dummy");
     Node *exps = $3;
     char* argName = strdup("");
-    while(exps)
-    {
-        if(!strcmp(exps->data, "$"))
-        {
+    while(exps) {
+        if(!strcmp(exps->data, "$")){
             Identifier *nextArg = makeId(argName);
-            if(!curr)
-            {
-                args = curr = nextArg;
-            }
-            else
-            {
-                curr->next = nextArg;
-                curr = nextArg;
-            }
+            addId(dummyMacro, nextArg);
             argName = strdup("");
         }
         else
-        {
             strncat(argName, exps->data, strlen(exps->data));
-        }
         exps = exps->next;
     }
-    if(strcmp(argName, ""))
-    {
+    if(strcmp(argName, "")) {
         Identifier *nextArg = makeId(argName);
-        if(!curr)
-        {
-            args = curr = nextArg;
-        }
-        else
-        {
-            curr->next = nextArg;
-            curr = nextArg;
-        }
+        addId(dummyMacro, nextArg);
     }
     Node *macroRep = reqMacro->replacement;
     Identifier *macroArgs = reqMacro->params_head;
-    while(macroRep)
-    {
+    Identifier *args = dummyMacro->params_head;
+    while(macroRep) {
         Identifier *currMacroArg = macroArgs;
-        curr = args;
-        while(currMacroArg)
-        {
+        Identifier *curr = args;
+        while(currMacroArg) {
             if(!strcmp(currMacroArg->name, macroRep->data))
                 break;
             curr = curr->next;
@@ -459,19 +424,14 @@ macroCall: IDENTIFIER LPAREN expressions RPAREN
         }
         Node *nextText = makeNode(macroRep->data);
         if(curr)
-        {
             nextText = makeNode(curr->name);
-        }
         if($$)
-        {
             append($$, nextText);
-        }
         else
-        {
             $$ = nextText;
-        }
         macroRep = macroRep->next;
     }
+    free(dummyMacro);
 }
 ;
 
@@ -485,6 +445,21 @@ expressions:
 extraExps: 
 {   $$ = makeNode("");  }
          | COMMA expression extraExps
+{   append($2, $3);
+    append($1, $2);
+    $$ = $1;    }
+;
+
+callExpressions: 
+{   $$ = makeNode("");  }
+           | expression extraCallExps
+{   append($1, $2);
+    $$ = $1;    }
+;
+
+extraCallExps: 
+{   $$ = makeNode("");  }
+         | COMMA expression extraCallExps
 {   append($2, $3);
     append($1, $2);
     $1->data = strdup("$");
@@ -524,17 +499,11 @@ expression: primaryExp OPERATOR primaryExp
 
 primaryExp: INTEGER
 {   $$ = $1;    }
-          
-          | TRUE
-{   $$ = $1;    }
-
-          | FALSE
-{   $$ = $1;    }
 
           | IDENTIFIER
 {   $$ = $1;    }
 
-          | THIS
+          | TF_THIS
 {   $$ = $1;    }
 
           | NEW INT LSQBR expression RSQBR
@@ -574,8 +543,7 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
     addId(newMacro, makeId($6->data));
     addId(newMacro, makeId($8->data));
     Node *extras = $9;
-    while(extras)
-    {
+    while(extras) {
         if(strcmp(extras->data, "") && strcmp(extras->data, ","))
             addId(newMacro, makeId(extras->data));
         extras = extras->next;
@@ -647,22 +615,19 @@ extraIDs:
     $$ = $1;    }
 ;
 
-macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN LPAREN expression RPAREN
+macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN macroDefBlock
 {   Macro *newMacro = makeMacro($2->data);
     addId(newMacro, makeId($4->data));
     addId(newMacro, makeId($6->data));
     addId(newMacro, makeId($8->data));
     Node *extras = $9;
-    while(extras)
-    {
+    while(extras) {
         if(strcmp(extras->data, "") && strcmp(extras->data, ","))
             addId(newMacro, makeId(extras->data));
         extras = extras->next;
     }
-    createReplacement(newMacro, $12);
+    createReplacement(newMacro, $11);
     addMacro(Macros, newMacro);
-    append($12, $13);
-    append($11, $12);
     append($10, $11);
     append($9, $10);
     append($8, $9);
@@ -675,25 +640,21 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     append($1, $2);
     $$ = $1;    }
 
-           | DEFE0 IDENTIFIER LPAREN RPAREN LPAREN expression RPAREN
+           | DEFE0 IDENTIFIER LPAREN RPAREN macroDefBlock
 {   Macro *newMacro = makeMacro($2->data);
-    createReplacement(newMacro, $6);
-    addMacro(Macros, newMacro);
-    append($6, $7);
-    append($5, $6);
+    createReplacement(newMacro, $5);
+    addMacro(Macros, newMacro);  
     append($4, $5);
     append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
-           | DEFE1 IDENTIFIER LPAREN IDENTIFIER RPAREN LPAREN expression RPAREN
+           | DEFE1 IDENTIFIER LPAREN IDENTIFIER RPAREN macroDefBlock
 {   Macro *newMacro = makeMacro($2->data);
     addId(newMacro, makeId($4->data));
-    createReplacement(newMacro, $7);
+    createReplacement(newMacro, $6);
     addMacro(Macros, newMacro);
-    append($7, $8);
-    append($6, $7);
     append($5, $6);
     append($4, $5);
     append($3, $4);
@@ -701,14 +662,12 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     append($1, $2);
     $$ = $1;    }
 
-           | DEFE2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN LPAREN expression RPAREN
+           | DEFE2 IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER RPAREN macroDefBlock
 {   Macro *newMacro = makeMacro($2->data);
     addId(newMacro, makeId($4->data));
     addId(newMacro, makeId($6->data));
-    createReplacement(newMacro, $9);
+    createReplacement(newMacro, $8);
     addMacro(Macros, newMacro);
-    append($9, $10);
-    append($8, $9);
     append($7, $8);
     append($6, $7);
     append($5, $6);
@@ -717,6 +676,11 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
+;
+
+macroDefBlock: LPAREN expression RPAREN
+{   append($2, $3);
+    append($1, $2); }
 ;
 
 LPAREN: LPAREN_T
@@ -775,15 +739,7 @@ DEFE: DEFE_T
 {   $$ = makeNode($1);  }
 ;
 
-TRUE: TRUE_T
-{   $$ = makeNode($1);  }
-;
-
-FALSE: FALSE_T
-{   $$ = makeNode($1);  }
-;
-
-THIS: THIS_T
+TF_THIS: TF_THIS_T
 {   $$ = makeNode($1);  }
 ;
 
@@ -885,8 +841,6 @@ IDENTIFIER: IDENTIFIER_T
 
 %%
 
-//C code
-
 void yyerror (const char *s) {
   printf ("Unexpected syntax\n");
 }
@@ -898,6 +852,12 @@ int main() {
 
     Macros = makeTable();
     yyparse();
+    Macro *currMacro = Macros->head;
+    while(currMacro) {
+        Macro *temp = currMacro;
+        currMacro = currMacro->next;
+        free(currMacro);
+    }
     return 0;
 }
 

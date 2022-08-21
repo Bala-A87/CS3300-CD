@@ -6,15 +6,15 @@
     int yylex(void);
     void yyerror(const char *);
 
-    typedef struct Node {
+    typedef struct Node {   //To keep track of and order terminals seen/parsed
         struct Node *next, *tail;
         char *data;
     } Node;
-
+    
     Node* makeNode(char *data) {
         Node *temp = (Node*) malloc(sizeof(Node));
         temp->next = NULL;
-        temp->tail = temp;
+        temp->tail = temp;  //Makes life easier while appending nodes
         temp->data = strdup(data);
         return temp;
     }
@@ -24,7 +24,7 @@
         list1->tail = list2->tail;
     }
 
-    typedef struct Identifier {
+    typedef struct Identifier { //To store arguments to a macro call (identifier names in the definition)
         char *name;
         struct Identifier *next;
     } Identifier;
@@ -36,10 +36,10 @@
         return temp;
     }
 
-    typedef struct Macro {
+    typedef struct Macro {  //We need to store macros seen
         char *name;
-        Identifier *params_head, *params_tail;
-        Node *replacement;
+        Identifier *params_head, *params_tail;  //Parameters of the macro definition
+        Node *replacement;  //The textual replacement to be done
         struct Macro *next;
     } Macro;
 
@@ -51,7 +51,7 @@
         temp->next = NULL;
     }
 
-    void addId(Macro *macro, Identifier *id) {
+    void addId(Macro *macro, Identifier *id) {  //Adds a parameter to a macro (linked list insertion)
         if(macro->params_tail)
         {
             macro->params_tail->next = id;
@@ -63,7 +63,7 @@
         }
     }
 
-    void createReplacement(Macro *macro, Node *replacement) {
+    void createReplacement(Macro *macro, Node *replacement) {   //Adds the replacement to the macro
         Node *head = NULL, *tail = NULL;
         Node *curr = replacement;
         while(curr)
@@ -83,7 +83,7 @@
         macro->replacement = head;
     }
 
-    typedef struct macroTable {
+    typedef struct macroTable { //To store all macro definitions
         Macro *head, *tail;
     } macroTable;
 
@@ -92,9 +92,9 @@
         table->head = table->tail = NULL;
     }
 
-    macroTable *Macros = NULL;
+    macroTable *Macros = NULL;  //The macros seen
 
-    void addMacro(macroTable *table, Macro *macro) {
+    void addMacro(macroTable *table, Macro *macro) {    //When we see a macro definition, we add the macro
         if(table->tail)
         {
             table->tail->next = macro;
@@ -106,7 +106,7 @@
         }
     }
 
-    Macro* findMacro(macroTable *table, char *macroName) {
+    Macro* findMacro(macroTable *table, char *macroName) {  //When we see a macro call, we search for the macro
         Macro *currMacro = table->head;
         while(currMacro)
         {
@@ -117,9 +117,12 @@
         return NULL;
     }
     
-    int tab_count = 0;
-    int tab_flag = 0;
-    int rcurly_count = 0;
+    /*
+     * The following variables were used for formatting the printed (MiniJava) output
+     */
+    int tab_count = 0;  //How many tabspaces to print
+    int tab_flag = 0;   //Whether or not to print tabspaces
+    int rcurly_count = 0;   //Helped place new lines after some chunks of code
 %}
 
 
@@ -162,25 +165,32 @@
 
 goal: macros mainClass declarations
 {
+    //All is well, so let's print the output! Macro definitions aren't allowed, so $1 is ignored
     append($2, $3);
     Node *curr = $2;
     while(curr) {
-        if(!strcmp(curr->data, "")) {
+        if(!strcmp(curr->data, "")) {   //The results from empty derviations can mess with format, so those are ignored
             curr = curr->next;
             continue;
         }
-        if(!strcmp(curr->data, "}"))
+
+        if(!strcmp(curr->data, "}"))    //To indent } with one lesser tabspace
             tab_count--;
-        else if(rcurly_count) {
+        else if(rcurly_count) { //After we've seen multiple }'s continuously, we add a newline to separate code
             printf("\n");
             rcurly_count = 0;
         }
         if(tab_flag) {
             for(int i = 0; i < tab_count; i++)
                 printf("\t");
-            tab_flag = 0;
+            tab_flag = 0;   //We don't need to print tabs for the next terminal we see!
         }
-        printf("%s ", curr->data);
+
+        printf("%s ", curr->data);  //The core part that actually matters
+        /*
+         * The following symbols ;{} are the ones which are followed by a new line
+         * These new lines being inserted required tabspaces to be printed in the next iteration
+         */
         if(!strcmp(curr->data, ";")) {
             printf("\n");
             tab_flag = 1;
@@ -195,6 +205,7 @@ goal: macros mainClass declarations
             printf("\n");
             tab_flag = 1;
         }
+
         Node *temp = curr;
         curr = curr->next;
         free(temp);
@@ -203,10 +214,10 @@ goal: macros mainClass declarations
 ;
 
 macros: 
-{   $$ = makeNode("");  }
+{   $$ = makeNode("");  }   //Empty derivations can't just be left with NULL as they might mess with later derivations
 
       | macroDefinition macros
-{   append($1, $2);
+{   append($1, $2); //We append all the RHS terms together and give it to our RHS (works for most productions :))
     $$ = $1;    }
 ;
 
@@ -388,15 +399,22 @@ statement: LCURLY stmt RCURLY
     $$ = $1;    }
 
          | macroCall SCOLON
-{   $$ = $1;    }
+{   $$ = $1;    
+    /* 
+     * We don't want the semicolon to be including after the macro call post replacement, so we don't append it
+     */ }
 ;
 
 macroCall: IDENTIFIER LPAREN callExpressions RPAREN
 {   $$ = NULL;
     Macro *reqMacro = findMacro(Macros, $1->data), *dummyMacro = makeMacro("dummy");
+    //dummyMacro is simply to maintain a list of calling parameters/expressions
     Node *exps = $3;
     char* argName = strdup("");
-    while(exps) {
+    /*
+     *  Obtaining the list of calling parameters:
+     */
+    while(exps) {   //Whenever we see the delimiter ($), we save our expression as our next parameter, otherwise we keep appending
         if(!strcmp(exps->data, "$")){
             Identifier *nextArg = makeId(argName);
             addId(dummyMacro, nextArg);
@@ -406,24 +424,28 @@ macroCall: IDENTIFIER LPAREN callExpressions RPAREN
             strncat(argName, exps->data, strlen(exps->data));
         exps = exps->next;
     }
-    if(strcmp(argName, "")) {
+    if(strcmp(argName, "")) {   //The last expression won't be followed by a $, so we need to add it in the end
         Identifier *nextArg = makeId(argName);
         addId(dummyMacro, nextArg);
     }
+    /*
+     *  Obtaining the text replacement from the macro's definition (parameters and replacement) and the calling parameters
+     */
     Node *macroRep = reqMacro->replacement;
     Identifier *macroArgs = reqMacro->params_head;
     Identifier *args = dummyMacro->params_head;
-    while(macroRep) {
+    while(macroRep) {   
         Identifier *currMacroArg = macroArgs;
-        Identifier *curr = args;
-        while(currMacroArg) {
+        Identifier *curr = args;    //Traverse the calling parameter list parallelly to use later
+        while(currMacroArg) {   //For every node we see in the replacement, we check if it is a parameter
             if(!strcmp(currMacroArg->name, macroRep->data))
-                break;
+                break;  //It is!
             curr = curr->next;
             currMacroArg = currMacroArg->next;
         }
-        Node *nextText = makeNode(macroRep->data);
-        if(curr)
+
+        Node *nextText = makeNode(macroRep->data);  //If it's not a parameter (default case), we use the node directly
+        if(curr)    //It is a parameter, so we substitute it with the calling parameter/expression
             nextText = makeNode(curr->name);
         if($$)
             append($$, nextText);
@@ -431,6 +453,7 @@ macroCall: IDENTIFIER LPAREN callExpressions RPAREN
             $$ = nextText;
         macroRep = macroRep->next;
     }
+
     free(dummyMacro);
 }
 ;
@@ -462,7 +485,7 @@ extraCallExps:
          | COMMA expression extraCallExps
 {   append($2, $3);
     append($1, $2);
-    $1->data = strdup("$");
+    $1->data = strdup("$"); //Using $ as a delimiter to separate the expressions in the macro call (comma could be a part of an expression so we can't use it)
     $$ = $1;    }
 ;
 
@@ -538,18 +561,22 @@ macroDefinition: macroDefExp
 
 macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER extraIDs RPAREN macroStmtBlock
 {   
+    /*
+     *  Make macro, add identifiers and then replacement, then add to the table of macros
+     */
     Macro *newMacro = makeMacro($2->data);
     addId(newMacro, makeId($4->data));
     addId(newMacro, makeId($6->data));
     addId(newMacro, makeId($8->data));
     Node *extras = $9;
-    while(extras) {
-        if(strcmp(extras->data, "") && strcmp(extras->data, ","))
+    while(extras) { //Extra identifiers
+        if(strcmp(extras->data, "") && strcmp(extras->data, ","))   //Add definition parameters (anything that isn't empty or a comma)
             addId(newMacro, makeId(extras->data));
         extras = extras->next;
     }
     createReplacement(newMacro, $11);
     addMacro(Macros, newMacro);
+
     append($10, $11);
     append($9, $10);
     append($8, $9);
@@ -566,6 +593,7 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
 {   Macro *newMacro = makeMacro($2->data);
     createReplacement(newMacro, $5);
     addMacro(Macros, newMacro);
+
     append($4, $5);
     append($3, $4);
     append($2, $3);
@@ -577,6 +605,7 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
     addId(newMacro, makeId($4->data));
     createReplacement(newMacro, $6);
     addMacro(Macros, newMacro);
+
     append($5, $6);
     append($4, $5);
     append($3, $4);
@@ -590,6 +619,7 @@ macroDefStmt: DEFS IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIE
     addId(newMacro, makeId($6->data));
     createReplacement(newMacro, $8);
     addMacro(Macros, newMacro);
+
     append($7, $8);
     append($6, $7);
     append($5, $6);
@@ -628,6 +658,7 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     }
     createReplacement(newMacro, $11);
     addMacro(Macros, newMacro);
+
     append($10, $11);
     append($9, $10);
     append($8, $9);
@@ -643,7 +674,8 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
            | DEFE0 IDENTIFIER LPAREN RPAREN macroDefBlock
 {   Macro *newMacro = makeMacro($2->data);
     createReplacement(newMacro, $5);
-    addMacro(Macros, newMacro);  
+    addMacro(Macros, newMacro); 
+
     append($4, $5);
     append($3, $4);
     append($2, $3);
@@ -655,6 +687,7 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     addId(newMacro, makeId($4->data));
     createReplacement(newMacro, $6);
     addMacro(Macros, newMacro);
+
     append($5, $6);
     append($4, $5);
     append($3, $4);
@@ -668,6 +701,7 @@ macroDefExp: DEFE IDENTIFIER LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER
     addId(newMacro, makeId($6->data));
     createReplacement(newMacro, $8);
     addMacro(Macros, newMacro);
+
     append($7, $8);
     append($6, $7);
     append($5, $6);
@@ -682,6 +716,11 @@ macroDefBlock: LPAREN expression RPAREN
 {   append($2, $3);
     append($1, $2); }
 ;
+
+/*
+ *  Non-terminals for every terminal
+ *  The tokens returned by the .l file contain only strings, which are made into nodes here
+ */
 
 LPAREN: LPAREN_T
 {   $$ = makeNode($1); }
@@ -851,7 +890,9 @@ int main() {
     // #endif
 
     Macros = makeTable();
+
     yyparse();
+
     Macro *currMacro = Macros->head;
     while(currMacro) {
         Macro *temp = currMacro;

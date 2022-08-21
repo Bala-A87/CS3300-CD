@@ -1,7 +1,3 @@
-%{
-    //C Code
-%}
-
 DIGIT [0-9]
 INTEGER {DIGIT}+
 LETTER [a-zA-Z_]
@@ -118,5 +114,3 @@ COMMENT "//".*
 . { printf("Lexer error\n"); exit(1); }
 
 %%
-
-//C code, main

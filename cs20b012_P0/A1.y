@@ -205,7 +205,7 @@ goal: macros comments mainClass declarations
             printf("\n");
             tab_flag = 1;
         }
-        else if(strlen(curr->data) > 2 && curr->data[0] == '/' && curr->data[1] == '/') {
+        else if(strlen(curr->data) > 2 && curr->data[0] == '/' && (curr->data[1] == '/') || (curr->data[1] == '*')) {
             printf("\n");
             tab_flag = 1;
         }
@@ -910,9 +910,9 @@ void yyerror (const char *s) {
 }
 
 int main() {
-    // #ifdef YYDEBUG
-    // yydebug = 1;
-    // #endif
+    #ifdef YYDEBUG
+    yydebug = 1;
+    #endif
 
     Macros = makeTable();
 

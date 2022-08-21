@@ -1,11 +1,22 @@
+%{
+    /*
+     *  Line 13 first regex: for inline comments
+     *  Second regex: for C-style/block, idea taken from https://stackoverflow.com/questions/13014947/regex-to-match-a-c-style-multiline-comment
+     */
+%}
+
 DIGIT [0-9]
 INTEGER {DIGIT}+
 LETTER [a-zA-Z_]
 IDENTIFIER {LETTER}({LETTER}|{DIGIT})*
 WHITESPACE [ \t\n\r]
-COMMENT "//"[^\r\n]*
+COMMENT ("//"[^\r\n]*)|("/*"[^"*"]*"*"+(?:[^"/""*"][^"*"]*"*"+)*"/")
 
 %%
+
+{COMMENT} { 
+    yylval.data = strdup(yytext); return COMMENT_T;
+}
 
 "(" { yylval.data = strdup(yytext); return LPAREN_T; }
 
@@ -109,9 +120,6 @@ COMMENT "//"[^\r\n]*
     yylval.data = strdup(yytext); return IDENTIFIER_T;
 }
 
-{COMMENT} { 
-    yylval.data = strdup(yytext); return COMMENT_T;
-}
 
 . { printf("Lexer error\n"); exit(1); }
 

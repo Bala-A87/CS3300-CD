@@ -1,6 +1,4 @@
 %{
-    //C code
-
     #include<stdio.h>
     #include<stdlib.h>
     #include<string.h>
@@ -12,14 +10,6 @@
     {
         struct Node *next, *tail;
         char *data;
-        int type;
-        /*
-         * 0 for NA
-         * 1 for int
-         * 2 for bool
-         * 3 for array
-         * What about other types??
-         */
     } Node;
 
     Node* makeNode(char *data)
@@ -28,7 +18,6 @@
         temp->next = NULL;
         temp->tail = temp;
         temp->data = strdup(data);
-        temp->type  = 0;
         return temp;
     }
 
@@ -415,10 +404,8 @@ statement: LCURLY stmt RCURLY
 ;
 
 macroCall: IDENTIFIER LPAREN expressions RPAREN
-{   fprintf(stderr, "\n\n\n\nEntered macro call for %s\n\n\n\n", $1->data);
+{   $$ = NULL;
     Macro *reqMacro = findMacro(Macros, $1->data);
-    fprintf(stderr, "\n\n\n\nFound macro %s\n\n\n\n", reqMacro->name);
-    //Test for validity (i.e., check if non-NULL)
     Identifier *args = NULL, *curr = NULL;
     Node *exps = $3;
     char* argName = strdup("");
@@ -457,7 +444,6 @@ macroCall: IDENTIFIER LPAREN expressions RPAREN
             curr = nextArg;
         }
     }
-    Node *macroText = NULL, *textHead = NULL;
     Node *macroRep = reqMacro->replacement;
     Identifier *macroArgs = reqMacro->params_head;
     while(macroRep)
@@ -471,27 +457,21 @@ macroCall: IDENTIFIER LPAREN expressions RPAREN
             curr = curr->next;
             currMacroArg = currMacroArg->next;
         }
-        Node *nextText;
+        Node *nextText = makeNode(macroRep->data);
         if(curr)
         {
             nextText = makeNode(curr->name);
         }
-        else
+        if($$)
         {
-            nextText = makeNode(macroRep->data);
-        }
-        if(macroText)
-        {
-            macroText->next = nextText;
-            macroText = nextText;
+            append($$, nextText);
         }
         else
         {
-            textHead = macroText = nextText;
+            $$ = nextText;
         }
         macroRep = macroRep->next;
     }
-    $$ = textHead;
 }
 ;
 
@@ -918,26 +898,6 @@ int main() {
 
     Macros = makeTable();
     yyparse();
-    // Macro *curr = Macros->head;
-    // while(curr)
-    // {
-    //     printf("%s\n", curr->name);
-    //     Identifier *currID = curr->params_head;
-    //     while(currID)
-    //     {
-    //         printf("%s ", currID->name);
-    //         currID = currID->next;
-    //     }
-    //     printf("\n");
-    //     Node *rep = curr->replacement;
-    //     while(rep)
-    //     {
-    //         printf("%s ", rep->data);
-    //         rep = rep->next;
-    //     }
-    //     printf("\n");
-    //     curr = curr->next;
-    // }
     return 0;
 }
 

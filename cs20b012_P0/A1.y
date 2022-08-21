@@ -1,4 +1,14 @@
 %{
+    /*
+     *  The parsing of comments was integrated into the grammar on the basis of comment positions observed in the sample MacroJava programs
+     *  In case the parsing doesn't work as expected for some test case, I request the reader to try removing the comment parsing
+     *  and try running it without them to check whether the code is being parsed correctly without comments
+     *  Changes to be made in such a case:
+     *  Line 18 in A1.l to be made an empty line (NOP)
+     *  Remove all productions having COMMENT or comments in the LHS
+     *  Remove the non-terminal comments from the RHS of productions and adjust the number of tokens of RHS used in the corresponding code accordingly
+     */
+
     #include<stdio.h>
     #include<stdlib.h>
     #include<string.h>
@@ -910,10 +920,6 @@ void yyerror (const char *s) {
 }
 
 int main() {
-    #ifdef YYDEBUG
-    yydebug = 1;
-    #endif
-
     Macros = makeTable();
 
     yyparse();

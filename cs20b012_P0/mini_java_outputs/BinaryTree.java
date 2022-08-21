@@ -4,6 +4,8 @@ class BinaryTree {
 	} 
 } 
 
+// This class invokes the methods to create a tree, 
+// insert, delete and serach for  elements on it 
 class BT { 
 	public int Start ( ) { 
 		Tree root ; 
@@ -41,6 +43,7 @@ class Tree {
 	boolean has_left ; 
 	boolean has_right ; 
 	Tree my_null ; 
+	// Initialize a node with a key value and no children 
 	public boolean Init ( int v_key ) { 
 		key = v_key ; 
 		has_left = false ; 
@@ -48,11 +51,13 @@ class Tree {
 		return true ; 
 	} 
 
+	// Update the right child with rn 
 	public boolean SetRight ( Tree rn ) { 
 		right = rn ; 
 		return true ; 
 	} 
 
+	// Update the left child with ln 
 	public boolean SetLeft ( Tree ln ) { 
 		left = ln ; 
 		return true ; 
@@ -93,6 +98,9 @@ class Tree {
 		return true ; 
 	} 
 
+	// This method compares two integers and 
+	// returns true if they are equal and false 
+	// otherwise 
 	public boolean Compare ( int num1 , int num2 ) { 
 		boolean ntb ; 
 		int nti ; 
@@ -104,6 +112,7 @@ class Tree {
 		return ntb ; 
 	} 
 
+	// Insert a new element in the tree 
 	public boolean Insert ( int v_key ) { 
 		Tree new_node ; 
 		boolean ntb ; 
@@ -138,6 +147,7 @@ class Tree {
 		return true ; 
 	} 
 
+	// Delete an element from the tree 
 	public boolean Delete ( int v_key ) { 
 		Tree current_node ; 
 		Tree parent_node ; 
@@ -179,6 +189,8 @@ class Tree {
 		return found ; 
 	} 
 
+	// Check if the element to be removed will use the 
+	// righ or left subtree if one exists 
 	public boolean Remove ( Tree p_node , Tree c_node ) { 
 		boolean ntb ; 
 		int auxkey1 ; 
@@ -187,6 +199,8 @@ class Tree {
 		else if ( c_node . GetHas_Right ( ) ) ntb = this . RemoveRight ( p_node , c_node ) ; 
 		else { 
 			auxkey1 = c_node . GetKey ( ) ; 
+			//auxtree01 = p_node.GetLeft() ; 
+			//auxkey2 = auxtree01.GetKey() ; 
 			auxkey2 = ( p_node . GetLeft ( ) ) . GetKey ( ) ; 
 			if ( this . Compare ( auxkey1 , auxkey2 ) ) { 
 				ntb = p_node . SetLeft ( my_null ) ; 
@@ -202,9 +216,15 @@ class Tree {
 		return true ; 
 	} 
 
+	// Copy the child key to the parent until a leaf is 
+	// found and remove the leaf. This is done with the 
+	// right subtree 
 	public boolean RemoveRight ( Tree p_node , Tree c_node ) { 
 		boolean ntb ; 
 		while ( c_node . GetHas_Right ( ) ) { 
+			//auxtree01 = c_node.GetRight() ; 
+			//auxint02 = auxtree01.GetKey(); 
+			//ntb = c_node.SetKey(auxint02); 
 			ntb = c_node . SetKey ( ( c_node . GetRight ( ) ) . GetKey ( ) ) ; 
 			p_node = c_node ; 
 			c_node = c_node . GetRight ( ) ; 
@@ -215,9 +235,15 @@ class Tree {
 		return true ; 
 	} 
 
+	// Copy the child key to the parent until a leaf is 
+	// found and remove the leaf. This is done with the 
+	// left subtree 
 	public boolean RemoveLeft ( Tree p_node , Tree c_node ) { 
 		boolean ntb ; 
 		while ( c_node . GetHas_Left ( ) ) { 
+			//auxtree01 = c_node.GetLeft() ; 
+			//auxint02 = auxtree01.GetKey(); 
+			//ntb = c_node.SetKey(auxint02); 
 			ntb = c_node . SetKey ( ( c_node . GetLeft ( ) ) . GetKey ( ) ) ; 
 			p_node = c_node ; 
 			c_node = c_node . GetLeft ( ) ; 
@@ -228,6 +254,7 @@ class Tree {
 		return true ; 
 	} 
 
+	// Search for an elemnt in the tree 
 	public int Search ( int v_key ) { 
 		boolean cont ; 
 		int ifound ; 
@@ -251,6 +278,7 @@ class Tree {
 		return ifound ; 
 	} 
 
+	// Invoke the method to really print the tree elements 
 	public boolean Print ( ) { 
 		Tree current_node ; 
 		boolean ntb ; 
@@ -259,15 +287,20 @@ class Tree {
 		return true ; 
 	} 
 
+	// Print the elements of the tree 
 	public boolean RecPrint ( Tree node ) { 
 		boolean ntb ; 
 		if ( node . GetHas_Left ( ) ) { 
+			//auxtree01 = node.GetLeft() ; 
+			//ntb = this.RecPrint(auxtree01); 
 			ntb = this . RecPrint ( node . GetLeft ( ) ) ; 
 		} 
 
 		else ntb = true ; 
 		System.out.println ( node . GetKey ( ) ) ; 
 		if ( node . GetHas_Right ( ) ) { 
+			//auxtree01 = node.GetRight() ; 
+			//ntb = this.RecPrint(auxtree01); 
 			ntb = this . RecPrint ( node . GetRight ( ) ) ; 
 		} 
 

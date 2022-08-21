@@ -132,7 +132,7 @@
     Node *node;
 }
 
-%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T TF_THIS_T
+%token <data> INTEGER_T IDENTIFIER_T OPERATOR_T TF_THIS_T COMMENT_T
 %token <data> NOT_T EQ_T 
 %token <data> IF_T ELSE_T WHILE_T 
 %token <data> NEW_T LENGTH_T PRINT_T
@@ -145,7 +145,7 @@
 %token <data> LSQBR_T RSQBR_T
 %token <data> LCURLY_T RCURLY_T
 
-%type <node> INTEGER IDENTIFIER OPERATOR
+%type <node> INTEGER IDENTIFIER OPERATOR COMMENT
 %type <node> NOT EQ 
 %type <node> IF ELSE WHILE 
 %type <node> NEW LENGTH PRINT TF_THIS
@@ -157,23 +157,23 @@
 %type <node> LPAREN RPAREN
 %type <node> LSQBR RSQBR
 %type <node> LCURLY RCURLY
-%type <node> mainClass expression primaryExp declarations typeDeclaration typeIdentifier method type methodDeclaration arguments stmt extraArgs statement
+%type <node> mainClass expression primaryExp declarations typeDeclaration typeIdentifier method type methodDeclaration arguments stmt extraArgs statement statements comments
 %type <node> macros macroDefinition macroCall expressions extraExps macroDefExp macroDefStmt extraIDs macroStmtBlock macroDefBlock callExpressions extraCallExps
 
 %%
 
 
-goal: macros mainClass declarations
+goal: macros comments mainClass declarations
 {
     //All is well, so let's print the output! Macro definitions aren't allowed, so $1 is ignored
     append($2, $3);
+    append($3, $4);
     Node *curr = $2;
     while(curr) {
-        if(!strcmp(curr->data, "")) {   //The results from empty derviations can mess with format, so those are ignored
+        if(!strcmp(curr->data, "")) {   //The results from empty derivations can mess with format, so those are ignored
             curr = curr->next;
             continue;
         }
-
         if(!strcmp(curr->data, "}"))    //To indent } with one lesser tabspace
             tab_count--;
         else if(rcurly_count) { //After we've seen multiple }'s continuously, we add a newline to separate code
@@ -188,7 +188,7 @@ goal: macros mainClass declarations
 
         printf("%s ", curr->data);  //The core part that actually matters
         /*
-         * The following symbols ;{} are the ones which are followed by a new line
+         * The following symbols ;{} as well as comments are the ones which are followed by a new line
          * These new lines being inserted required tabspaces to be printed in the next iteration
          */
         if(!strcmp(curr->data, ";")) {
@@ -202,6 +202,10 @@ goal: macros mainClass declarations
         }
         else if(!strcmp(curr->data, "}")) {
             rcurly_count++;
+            printf("\n");
+            tab_flag = 1;
+        }
+        else if(strlen(curr->data) > 2 && curr->data[0] == '/' && curr->data[1] == '/') {
             printf("\n");
             tab_flag = 1;
         }
@@ -224,8 +228,9 @@ macros:
 declarations:
 {   $$ = makeNode("");  }
 
-            | typeDeclaration declarations
-{   append($1, $2);
+            | comments typeDeclaration declarations
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;    
 
@@ -285,8 +290,9 @@ typeIdentifier:
 method: 
 {   $$ = makeNode("");  }
 
-      | methodDeclaration method
-{   append($1, $2);
+      | comments methodDeclaration method
+{   append($2, $3);
+    append($1, $2);
     $$ = $1;    }
 ;
 
@@ -348,25 +354,32 @@ stmt:
     $$ = $1;    }
 ;
 
-statement: LCURLY stmt RCURLY
+statement: statements
+{   $$ = $1;    }
+
+         | comments statement
+{   append($1, $2);
+    $$ = $1;    }
+
+statements: LCURLY stmt RCURLY
 {   append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
-         | PRINT LPAREN expression RPAREN SCOLON
+          | PRINT LPAREN expression RPAREN SCOLON
 {   append($4, $5);
     append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    } 
 
-         | IDENTIFIER EQ expression SCOLON
+          | IDENTIFIER EQ expression SCOLON
 {   append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
-         | IDENTIFIER LSQBR expression RSQBR EQ expression SCOLON
+          | IDENTIFIER LSQBR expression RSQBR EQ expression SCOLON
 {   append($6, $7);
     append($5, $6);
     append($4, $5);
@@ -375,14 +388,14 @@ statement: LCURLY stmt RCURLY
     append($1, $2);
     $$ = $1;    }
 
-         | IF LPAREN expression RPAREN statement
+          | IF LPAREN expression RPAREN statement
 {   append($4, $5);
     append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
-         | IF LPAREN expression RPAREN statement ELSE statement
+          | IF LPAREN expression RPAREN statement ELSE statement
 {   append($6, $7);
     append($5, $6);
     append($4, $5);
@@ -391,14 +404,14 @@ statement: LCURLY stmt RCURLY
     append($1, $2);
     $$ = $1;    }
 
-         | WHILE LPAREN expression RPAREN statement
+          | WHILE LPAREN expression RPAREN statement
 {   append($4, $5);
     append($3, $4);
     append($2, $3);
     append($1, $2);
     $$ = $1;    }
 
-         | macroCall SCOLON
+          | macroCall SCOLON
 {   $$ = $1;    
     /* 
      * We don't want the semicolon to be including after the macro call post replacement, so we don't append it
@@ -717,6 +730,14 @@ macroDefBlock: LPAREN expression RPAREN
     append($1, $2); }
 ;
 
+comments: 
+{   $$ = makeNode("");    }
+
+        | COMMENT comments
+{   append($1, $2);
+    $$ = $1;    }
+;
+
 /*
  *  Non-terminals for every terminal
  *  The tokens returned by the .l file contain only strings, which are made into nodes here
@@ -875,6 +896,10 @@ INTEGER: INTEGER_T
 ;
 
 IDENTIFIER: IDENTIFIER_T
+{   $$ = makeNode($1);  }
+;
+
+COMMENT: COMMENT_T
 {   $$ = makeNode($1);  }
 ;
 

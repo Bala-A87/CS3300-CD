@@ -4,9 +4,14 @@ class BubbleSort {
 	} 
 } 
 
+// This class contains the array of integers and 
+// methods to initialize, print and sort the array 
+// using Bublesort 
 class BBS { 
 	int [ ] number ; 
 	int size ; 
+	// Invoke the Initialization, Sort and Printing 
+	// Methods 
 	public int Start ( int sz ) { 
 		int aux01 ; 
 		aux01 = this . Init ( sz ) ; 
@@ -17,6 +22,7 @@ class BBS {
 		return 0 ; 
 	} 
 
+	// Sort array of integers using Bublesort method 
 	public int Sort ( ) { 
 		int nt ; 
 		int i ; 
@@ -31,6 +37,7 @@ class BBS {
 		aux02 = 0 - 1 ; 
 		while ( aux02 <= ( i - 1 ) ) { 
 			j = 1 ; 
+			//aux03 = i+1 ; 
 			while ( j <= i ) { 
 				aux07 = j - 1 ; 
 				aux04 = number [ aux07 ] ; 
@@ -52,6 +59,7 @@ class BBS {
 		return 0 ; 
 	} 
 
+	// Printing method 
 	public int Print ( ) { 
 		int j ; 
 		j = 0 ; 
@@ -63,6 +71,7 @@ class BBS {
 		return 0 ; 
 	} 
 
+	// Initialize array of integers 
 	public int Init ( int sz ) { 
 		size = sz ; 
 		number = new int [ sz ] ; 

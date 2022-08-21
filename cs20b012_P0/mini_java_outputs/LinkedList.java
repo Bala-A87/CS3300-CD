@@ -8,6 +8,7 @@ class Element {
 	int Age ; 
 	int Salary ; 
 	boolean Married ; 
+	// Initialize some class variables 
 	public boolean Init ( int v_Age , int v_Salary , boolean v_Married ) { 
 		Age = v_Age ; 
 		Salary = v_Salary ; 
@@ -27,6 +28,8 @@ class Element {
 		return Married ; 
 	} 
 
+	// This method returns true if the object "other" 
+	// has the same values for age, salary and  
 	public boolean Equal ( Element other ) { 
 		boolean ret_val ; 
 		int aux01 ; 
@@ -47,6 +50,9 @@ class Element {
 		return ret_val ; 
 	} 
 
+	// This method compares two integers and 
+	// returns true if they are equal and false 
+	// otherwise 
 	public boolean Compare ( int num1 , int num2 ) { 
 		boolean retval ; 
 		int aux02 ; 
@@ -63,11 +69,13 @@ class List {
 	Element elem ; 
 	List next ; 
 	boolean end ; 
+	// Initialize the node list as the last node 
 	public boolean Init ( ) { 
 		end = true ; 
 		return true ; 
 	} 
 
+	// Initialize the values of a new node 
 	public boolean InitNew ( Element v_elem , List v_next , boolean v_end ) { 
 		end = v_end ; 
 		elem = v_elem ; 
@@ -75,6 +83,7 @@ class List {
 		return true ; 
 	} 
 
+	// Insert a new node at the beginning of the list 
 	public List Insert ( Element new_elem ) { 
 		boolean ret_val ; 
 		List aux03 ; 
@@ -85,11 +94,13 @@ class List {
 		return aux02 ; 
 	} 
 
+	// Update the the pointer to the next node 
 	public boolean SetNext ( List v_next ) { 
 		next = v_next ; 
 		return true ; 
 	} 
 
+	// Delete an element e from the list 
 	public List Delete ( Element e ) { 
 		List my_head ; 
 		boolean ret_val ; 
@@ -111,10 +122,12 @@ class List {
 			if ( e . Equal ( var_elem ) ) { 
 				ret_val = true ; 
 				if ( ( aux04 <= 0 ) && ( aux04 != 0 ) ) { 
+					// delete first element 
 					my_head = aux01 . GetNext ( ) ; 
 				} 
 
 				else { 
+					// delete a non first element 
 					System.out.println ( 0 - 555 ) ; 
 					aux05 = prev . SetNext ( aux01 . GetNext ( ) ) ; 
 					System.out.println ( 0 - 555 ) ; 
@@ -136,6 +149,7 @@ class List {
 		return my_head ; 
 	} 
 
+	// Search for an element e on the list 
 	public int Search ( Element e ) { 
 		int int_ret_val ; 
 		List aux01 ; 
@@ -172,6 +186,7 @@ class List {
 		return next ; 
 	} 
 
+	// Print the linked list 
 	public boolean Print ( ) { 
 		List aux01 ; 
 		boolean var_end ; 
@@ -190,6 +205,8 @@ class List {
 	} 
 } 
 
+// this class invokes the methods to insert, delete, 
+// search and print the linked list 
 class LL { 
 	public int Start ( ) { 
 		List head ; 
@@ -203,17 +220,20 @@ class LL {
 		head = last_elem ; 
 		aux01 = head . Init ( ) ; 
 		aux01 = head . Print ( ) ; 
+		// inserting first element 
 		el01 = new Element ( ) ; 
 		aux01 = el01 . Init ( 25 , 37000 , false ) ; 
 		head = head . Insert ( el01 ) ; 
 		aux01 = head . Print ( ) ; 
 		System.out.println ( 10000000 ) ; 
+		// inserting second  element 
 		el01 = new Element ( ) ; 
 		aux01 = el01 . Init ( 39 , 42000 , true ) ; 
 		el02 = el01 ; 
 		head = head . Insert ( el01 ) ; 
 		aux01 = head . Print ( ) ; 
 		System.out.println ( 10000000 ) ; 
+		// inserting third element 
 		el01 = new Element ( ) ; 
 		aux01 = el01 . Init ( 22 , 34000 , false ) ; 
 		head = head . Insert ( el01 ) ; 
@@ -223,6 +243,7 @@ class LL {
 		System.out.println ( head . Search ( el02 ) ) ; 
 		System.out.println ( head . Search ( el03 ) ) ; 
 		System.out.println ( 10000000 ) ; 
+		// inserting fourth element 
 		el01 = new Element ( ) ; 
 		aux01 = el01 . Init ( 28 , 35000 , false ) ; 
 		head = head . Insert ( el01 ) ; 

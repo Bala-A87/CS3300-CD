@@ -1,0 +1,19 @@
+import syntaxtree.*;
+import visitor.*;
+import java.util.*;
+
+public class P1 {
+   public static void main(String [] args) {
+      try {
+         Node root = new MiniJavaParser(System.in).Goal();
+         GJDepthFirst df = new GJDepthFirst();
+         // Stack<String> scope = new Stack<String>();
+         System.out.println("About to call accept");
+         Object value = root.accept(df, null); // Your assignment part is invoked here.
+
+      }
+      catch (ParseException e) {
+         System.out.println(e.toString());
+      }
+   }
+}

@@ -340,8 +340,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(Type n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret=null;
-      n.f0.accept(this, argu);
+      R _ret=n.f0.accept(this, argu);
       return _ret;
    }
 
@@ -357,6 +356,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
+      _ret = (R)"int[]";
       return _ret;
    }
 
@@ -368,6 +368,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret=null;
       n.f0.accept(this, argu);
+      _ret = (R)"boolean";
       return _ret;
    }
 
@@ -379,6 +380,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret=null;
       n.f0.accept(this, argu);
+      _ret = (R)"int";
       return _ret;
    }
 

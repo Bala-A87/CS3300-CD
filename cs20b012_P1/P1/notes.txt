@@ -1,2 +1,0 @@
-VarDeclaration*, MethodDeclaration* should return hashmaps of the required types
-Can this be done or do I need a stack?

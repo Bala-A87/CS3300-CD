@@ -18,24 +18,28 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, String> parents;
    HashMap<String, HashMap<String, String>> classMembers;
    HashMap<String, HashMap<String, HashMap<String, String>>> classMethods;
+   HashMap<String, HashMap<String, ArrayList<String>>> methodSignatures;
    HashMap<String, HashMap<String, String>> returnTypes;
    HashMap<String, HashMap<String, HashMap<String, String>>> localVars;
    Stack<String> scope;
+   ArrayList<String> actualParams;
 
     public GJDepthFirst() {
       build = true;
       parents = new HashMap<String, String>();
       classMembers = new HashMap<String, HashMap<String, String>>();
       classMethods = new HashMap<String, HashMap<String, HashMap<String, String>>>();
+      methodSignatures = new HashMap<String, HashMap<String, ArrayList<String>>>();
       returnTypes = new HashMap<String, HashMap<String, String>>();
       localVars = new HashMap<String, HashMap<String, HashMap<String, String>>>();
       scope = new Stack<String>();
+      actualParams = new ArrayList<String>();
     }
 
     public String getType(String varName, String className, String methodName) {
       String currClass = className;
-      while(!currClass.equals(null)) {
-         if(!methodName.equals(null)) {
+      while(currClass != null) {
+         if(methodName != null) {
             if(localVars.get(currClass).get(methodName).containsKey(varName))
                return localVars.get(currClass).get(methodName).get(varName);
             if(classMethods.get(currClass).get(methodName).containsKey(varName))
@@ -51,7 +55,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     public String getClassScope() {
       String currScope = scope.peek();
       if(currScope.charAt(currScope.length()-1) == ')')
-         return scope.get(1);
+         return scope.get(scope.size()-2);
       return currScope;
     }
 
@@ -64,6 +68,36 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
     public boolean classExists(String className) {
       return parents.containsKey(className);
+    }
+
+    public boolean methodExists(String className, String methodName) {
+      String currClass = className;
+      while(currClass != null) {
+         if(classMethods.get(className).containsKey(methodName))
+            return true;
+         currClass = parents.get(currClass);
+      }
+      return false;
+    }
+
+    public ArrayList<String> getFormalParams(String className, String methodName) {
+      String currClass = className;
+      while(currClass != null) {
+         if(classMethods.get(className).containsKey(methodName))
+            break;
+         currClass = parents.get(currClass);
+      }
+      return methodSignatures.get(className).get(methodName);
+    }
+
+    public boolean accepts(String upperClass, String lowerClass) {
+      String currClass = lowerClass;
+      while(currClass != null) {
+         if(currClass.equals(upperClass))
+            return true;
+         currClass = parents.get(currClass);
+      }
+      return false;
     }
 
     public void FAILURE() {
@@ -132,12 +166,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f2.accept(this, argu);
 
       build = false;
-      System.out.println("Build complete");
+      // System.out.println("Build complete");
       
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-
+   
       // for(HashMap.Entry<String, String> entry: parents.entrySet())
       //    System.out.println(entry.getKey() + ": " + entry.getValue());
       // for(HashMap.Entry<String, HashMap<String, String>> entry: classMembers.entrySet()) {
@@ -166,6 +197,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       //          System.out.println(vars.getKey() + ": " + vars.getValue());
       //    }
       // }
+
+      n.f0.accept(this, argu);
+      // System.out.println("Crossed main");
+      n.f1.accept(this, argu);
+      n.f2.accept(this, argu);
 
       System.out.println("Program type checked successfully");
       return _ret;
@@ -201,6 +237,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          classMembers.put(className, new HashMap<String, String>());
          classMethods.put(className, new HashMap<String, HashMap<String, String>>());
+         methodSignatures.put(className, new HashMap<String, ArrayList<String>>());
          returnTypes.put(className, new HashMap<String, String>());
          localVars.put(className, new HashMap<String, HashMap<String, String>>());
       }
@@ -213,6 +250,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       scope.push(methodName);
       if(build) {
          classMethods.get(className).put(methodName, new HashMap<String, String>());
+         methodSignatures.get(className).put(methodName, new ArrayList<String>());
          returnTypes.get(className).put(methodName, "void");
          localVars.get(className).put(methodName, new HashMap<String, String>());
       }
@@ -221,7 +259,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f9.accept(this, argu);
       n.f10.accept(this, argu);
       String varName = (String)n.f11.accept(this, argu);
-      if(build) classMethods.get(className).get(methodName).put(varName, "String[]");
+      if(build) {
+         classMethods.get(className).get(methodName).put(varName, "String[]");
+         methodSignatures.get(className).get(methodName).add("String[]");
+      }
       n.f12.accept(this, argu);
       n.f13.accept(this, argu);
       n.f14.accept(this, argu);
@@ -260,6 +301,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          classMembers.put(className, new HashMap<String, String>());
          classMethods.put(className, new HashMap<String, HashMap<String, String>>());
+         methodSignatures.put(className, new HashMap<String, ArrayList<String>>());
          returnTypes.put(className, new HashMap<String, String>());
          localVars.put(className, new HashMap<String, HashMap<String, String>>());
          parents.put(className, null);
@@ -293,6 +335,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          classMembers.put(className, new HashMap<String, String>());
          classMethods.put(className, new HashMap<String, HashMap<String, String>>());
+         methodSignatures.put(className, new HashMap<String, ArrayList<String>>());
          returnTypes.put(className, new HashMap<String, String>());
          localVars.put(className, new HashMap<String, HashMap<String, String>>());
          parents.put(className, parentName);
@@ -357,6 +400,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String methodName = (String)n.f2.accept(this, argu) + "()";
       if(build) {
          classMethods.get(scope.peek()).put(methodName, new HashMap<String, String>());
+         methodSignatures.get(scope.peek()).put(methodName, new ArrayList<String>());
          returnTypes.get(scope.peek()).put(methodName, methodType);
          localVars.get(scope.peek()).put(methodName, new HashMap<String, String>());
       }
@@ -371,7 +415,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String returnType = (String)n.f10.accept(this, argu);
       n.f11.accept(this, argu);
       n.f12.accept(this, argu);
-      if(!build && !methodType.equals(returnType)) 
+      if(!build && !accepts(methodType, returnType)) 
       {
          System.out.println("Method type != Return type");
          FAILURE();
@@ -409,6 +453,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String paramName = (String)n.f1.accept(this, argu);
       if(build) {
          classMethods.get(className).get(methodName).put(paramName, paramType);
+         methodSignatures.get(className).get(methodName).add(paramType);
       }
       return _ret;
    }
@@ -519,7 +564,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String varName = (String)n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       String exprType = (String)n.f2.accept(this, argu); //check null
-      if(!build && !exprType.equals(getType(varName, getClassScope(), getMethodScope())))
+      if(!build && !accepts(getType(varName, getClassScope(), getMethodScope()), exprType))
       {
          System.out.println("Identifier = Expression;");
          FAILURE();
@@ -684,8 +729,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
+      A temp = argu;
+      argu = null;
       _ret = n.f0.accept(this, argu);
+      argu = temp;
       // System.out.println("Expression type: " + (String)_ret);
+      if(!build && "ActualParams".equals((String)argu)) 
+         actualParams.add((String)_ret);
       return _ret;
    }
 
@@ -774,10 +824,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret=(R)"int";
       String type1 = (String)n.f0.accept(this, argu);
-      System.out.println(type1);
+      // System.out.println(type1);
       n.f1.accept(this, argu);
       String type2 = (String)n.f2.accept(this, argu);
-      System.out.println(type2);
+      // System.out.println(type2);
       if(!build && !"int".equals(type1) && !"int".equals(type2))
       {
          System.out.println("PrimaryExpression+PrimaryExpression");
@@ -900,11 +950,52 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
+      ArrayList<String> tempStore = new ArrayList<String>(actualParams);
       String exprType = (String)n.f0.accept(this, argu); //Get the primary expression type
+      // if(!build) {
+      //    System.out.println("Calling object type: " + exprType);
+      //    // System.out.println("Current scope: " + scope.get(2));
+      //    // System.out.println("Stack contents:");
+      //    // for(int i = 0; i < scope.size(); i++)
+      //    //    System.out.print(scope.get(i) + " ");
+      //    // System.out.println("");
+      // }
       n.f1.accept(this, argu);
-      n.f2.accept(this, argu); //Search if the method exists, else FAILURE()
+      String methodName = (String)n.f2.accept(this, argu) + "()"; //Search if the method exists, else FAILURE()
+      // if(!build) System.out.println("Found method " + methodName);
+      if(!build) {
+         if(!classExists(exprType))
+         {
+            System.out.println("Method call - class " + exprType + " DNE");
+            FAILURE();
+         }
+         if(!methodExists(exprType, methodName))
+         {
+            System.out.println("Method call - method " + methodName + " DNE in " + exprType);
+            FAILURE();
+         }
+         _ret = (R)returnTypes.get(exprType).get(methodName);
+         actualParams.clear();
+      }
       n.f3.accept(this, argu);
       n.f4.accept(this, argu); //Maybe use a stack to store the types of the parameters
+      if(!build) {
+         ArrayList<String> formalParams = getFormalParams(exprType, methodName);
+         if(formalParams.size() != actualParams.size())
+         {
+            System.out.println("Method call - number of arguments don't match: formal - " + formalParams.size() + ", actual - " + actualParams.size());
+            FAILURE();
+         }
+         for(int i = 0; i < formalParams.size(); i++)
+            if(!accepts(formalParams.get(i), actualParams.get(i))) //make new function called accepts and modify type check
+            {
+               System.out.println("Method call - " + methodName + ": argument " + (i+1) + " doesn't match");
+               System.out.println("Expected argument: " + formalParams.get(i));
+               System.out.println("Received argument: " + actualParams.get(i));
+               FAILURE();
+            }
+         actualParams = new ArrayList<String>(tempStore);
+      }
       n.f5.accept(this, argu); //Then check if they match, else FAILURE()
       return _ret; //Return the method's return type
    }
@@ -917,8 +1008,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
+      A temp = argu;
+      argu = (A)"ActualParams";
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
+      argu = temp;
       return _ret;
    }
 
@@ -950,10 +1044,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
+      A temp = argu;
       argu = (A)"PrimaryExpression";
       _ret = n.f0.accept(this, argu);
       // System.out.println("The expression type is " + (String)_ret);
-      argu = null;
+      argu = temp;
       return _ret;
    }
 

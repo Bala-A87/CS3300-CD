@@ -14,16 +14,30 @@ import java.util.*;
 public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    //
    // Auto class visitors--probably don't need to be overridden.
-   boolean build;
+   boolean build; //flag to track whether we are building tables or type-checking
    boolean printDebug;
+
+   /*
+    * **** THE SYMBOL TABLES ****
+    * parents: stores parent class for each class
+    * classMembers: stores member variables and their types for each class
+    * classMethods: stores methods and their formal parameters (with types) for each class
+    * methodSignatures: stores methods and the types (in order) of the formal parameters for each class
+    * returnTypes: stores methods and their return types for each class
+    * localVars: stores methods and their local variables (with types) for each class
+    */
+
+   /* ******************************************************************** */
    HashMap<String, String> parents;
    HashMap<String, HashMap<String, String>> classMembers;
    HashMap<String, HashMap<String, HashMap<String, String>>> classMethods;
    HashMap<String, HashMap<String, ArrayList<String>>> methodSignatures;
    HashMap<String, HashMap<String, String>> returnTypes;
    HashMap<String, HashMap<String, HashMap<String, String>>> localVars;
-   Stack<String> scope;
-   ArrayList<String> actualParams;
+   /* ******************************************************************** */
+
+   Stack<String> scope; //Stores scope heirarchy at the current instant
+   ArrayList<String> actualParams;  //To store types of actual parameters in a method call, for comparison with those of formal parameters
 
     public GJDepthFirst() {
       build = true;
@@ -39,16 +53,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     public String getType(String varName, String className, String methodName) {
+      // Given current class-level and method-level scopes, determines the type of the variable
       String currClass = className;
-      while(currClass != null) {
-         if(methodName != null) {
-            if(localVars.get(currClass).get(methodName).containsKey(varName))
-               return localVars.get(currClass).get(methodName).get(varName);
-            if(classMethods.get(currClass).get(methodName).containsKey(varName))
-               return classMethods.get(currClass).get(methodName).get(varName);
-         }
+      if(methodName != null) {   //We are inside a method
+         if(localVars.get(currClass).get(methodName).containsKey(varName))
+            return localVars.get(currClass).get(methodName).get(varName);
+         if(classMethods.get(currClass).get(methodName).containsKey(varName))
+            return classMethods.get(currClass).get(methodName).get(varName);
+      }
+      while(currClass != null) { //We are only in a class and not in a method, or we haven't found a variable match inside the method
+      // So we check in the class and in its ancestors
          if(classMembers.get(currClass).containsKey(varName))
-         return classMembers.get(currClass).get(varName);
+            return classMembers.get(currClass).get(varName);
          currClass = parents.get(currClass);
       }
       return null;
@@ -73,6 +89,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     public boolean methodExists(String className, String methodName) {
+      // Does the method exist in the specified class?
       String currClass = className;
       while(currClass != null) {
          if(classMethods.get(className).containsKey(methodName))
@@ -93,6 +110,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     public boolean accepts(String upperClass, String lowerClass) {
+      // Can a variable of type upperClass accommodate a variable/value of type lowerClass?
       String currClass = lowerClass;
       while(currClass != null) {
          if(currClass.equals(upperClass))
@@ -186,7 +204,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
 
-      build = false;
+      build = false; //Symbol tables have been built
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -288,8 +306,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String className = (String)n.f1.accept(this, argu);
       scope.push(className);
       if(build) {
-         if(classExists(className)) {
-            if(printDebug) System.out.println("Class " + className + " already exists");
+         if(classExists(className)) {  //distinct check
+            if(printDebug) System.out.println("Class " + className + " already exists"); 
             FAILURE();
          }
          classMembers.put(className, new HashMap<String, String>());
@@ -326,14 +344,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String parentName = (String)n.f3.accept(this, argu);
       scope.push(className);
       if(build) {
-         if(classExists(className)) {
-            if(printDebug) System.out.println("Class " + className + " already exists");
+         if(classExists(className)) {  //distinct check
+            if(printDebug) System.out.println("Class " + className + " already exists");  
             FAILURE();
          }
          String ancestorName = parentName;
          while(ancestorName != null) {
-            if(ancestorName.equals(className)) {
-               if(printDebug) System.out.println("Cyclic extension found");
+            if(ancestorName.equals(className)) {   //inheritance occurs in a cyclic fashion, which isn't legal
+               if(printDebug) System.out.println("Cyclic extension found");   
                FAILURE();
             }
             ancestorName = parents.get(ancestorName);
@@ -373,15 +391,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          String classScope = getClassScope();
          String methodScope = getMethodScope();
          if(methodScope == null) { //Currently in a class
-            if(classMembers.get(classScope).containsKey(idName)) {
-               if(printDebug) System.out.println("Member " + idName + " already exists in " + classScope);
+            if(classMembers.get(classScope).containsKey(idName)) {   //distinct check
+               if(printDebug) System.out.println("Member " + idName + " already exists in " + classScope);  
                FAILURE();
             }
             else
                classMembers.get(classScope).put(idName, idType);
          }
          else { //Currently in a method => methodDeclaration type rules needed
-            if(localVars.get(classScope).get(methodScope).containsKey(idName)) {
+            if(localVars.get(classScope).get(methodScope).containsKey(idName)) { //distinct check
                if(printDebug) System.out.println("Method " + methodScope + " of " + classScope + " already has local variable " + idName);
                FAILURE();
             }
@@ -413,10 +431,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String methodType = (String)n.f1.accept(this, argu);
-      String methodName = (String)n.f2.accept(this, argu) + "()";
-      String currClass = (String)getClassScope();
+      String methodName = (String)n.f2.accept(this, argu) + "()"; 
+      // Methods are stored in scope with () at the end to distinguish from classes
+      String currClass = getClassScope();
       if(build) {
-         if(methodExists(currClass, methodName)) {
+         if(methodExists(currClass, methodName)) { //distinct check
             if(printDebug) System.out.println("Method " + methodName + " already exists in " + currClass);
             FAILURE();
          }
@@ -426,7 +445,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          localVars.get(currClass).put(methodName, new HashMap<String, String>());
       }
       else {
-         if(!noOverloading(currClass, methodName)) {
+         if(!noOverloading(currClass, methodName)) {  //noOverloading check
             if(printDebug) System.out.println("Overloading of " + methodName + " in " + currClass);
             FAILURE();
          }
@@ -477,7 +496,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String paramType = (String)n.f0.accept(this, argu);
       String paramName = (String)n.f1.accept(this, argu);
       if(build) {
-         if(classMethods.get(className).get(methodName).containsKey(paramName)) {
+         if(classMethods.get(className).get(methodName).containsKey(paramName)) {   //distinct check
             if(printDebug) System.out.println("Method " + methodName + " of " + className + " already has parameter " + paramName);
             FAILURE();
          }
@@ -521,11 +540,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(ArrayType n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret=null;
+      R _ret=(R)"int[]";
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
-      _ret = (R)"int[]";
       return _ret;
    }
 
@@ -535,9 +553,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(BooleanType n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret=null;
+      R _ret=(R)"boolean";
       n.f0.accept(this, argu);
-      _ret = (R)"boolean";
       return _ret;
    }
 
@@ -547,9 +564,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(IntegerType n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret=null;
+      R _ret=(R)"int";
       n.f0.accept(this, argu);
-      _ret = (R)"int";
       return _ret;
    }
 
@@ -762,7 +778,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       argu = null;
       _ret = n.f0.accept(this, argu);
       argu = temp;
-      if(!build && "ActualParams".equals((String)argu)) 
+      if(!build && "ActualParams".equals((String)argu))
          actualParams.add((String)_ret);
       return _ret;
    }
@@ -832,7 +848,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     * f1 -> "!="
     * f2 -> PrimaryExpression()
     */
-   public R visit(neqExpression n, A argu) { //Criteria??
+   public R visit(neqExpression n, A argu) {
 		/* YOUR CODE HERE */
 
       R _ret=(R)"boolean";
@@ -977,7 +993,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     * f4 -> ( ExpressionList() )?
     * f5 -> ")"
     */
-   public R visit(MessageSend n, A argu) { //***Method calls***
+   public R visit(MessageSend n, A argu) { /* *** Method calls *** */
 		/* YOUR CODE HERE */
 
       R _ret=null;
@@ -1033,7 +1049,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret=null;
       A temp = argu;
-      argu = (A)"ActualParams";
+      argu = (A)"ActualParams"; 
+      // Special argument to notify Expression() to store the type into actualParams, for type-checking method call
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       argu = temp;
@@ -1070,6 +1087,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       A temp = argu;
       argu = (A)"PrimaryExpression";
+      // Special argument to notify Identifier() to return the type of the identifier and not the identifier itself, for type-checking
       _ret = n.f0.accept(this, argu);
       argu = temp;
       return _ret;
@@ -1115,8 +1133,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=n.f0.accept(this, argu);
-      if(!build && "PrimaryExpression".equals((String)argu))
+      String varName = (String)_ret;
+      if(!build && "PrimaryExpression".equals((String)argu)) {
          _ret = (R)getType((String)_ret, getClassScope(), getMethodScope());
+         if(_ret == null) {
+            if(printDebug) System.out.println(varName + " not found in current scope");
+            FAILURE();
+         }
+      }
       return _ret;
    }
 

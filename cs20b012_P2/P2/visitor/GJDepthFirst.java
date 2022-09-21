@@ -63,7 +63,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          tempNo++;
       }
       System.out.println("MOVE TEMP " + tempNo++ + " " + objectSize);
-      System.out.println("MOVE TEMP " + tempNo + "HALLOCATE TEMP " + (tempNo-1));
+      System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
       System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + functionTableLoc);
       int objectLoc = tempNo;
       tempNo++;
@@ -71,17 +71,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     ArrayList<Integer> obtainVariable(String varName) {
-      String className = getClassScope();
+      // String className = getClassScope();
       ArrayList<Integer> ans = new ArrayList<Integer>();
       if(tempMap.containsKey(varName)) ans.add(tempMap.get(varName));
-      else {
-         int memberIndex = classTable.get(className).findMember(varName);
-         if(memberIndex == -1) ans.add(-1);
-         else {
-            ans.add(0);
-            ans.add(memberIndex);
-         }
-      }
+      // else {
+      //    int memberIndex = classTable.get(className).findMember(varName);
+      //    if(memberIndex == -1) ans.add(-1);
+      //    else {
+      //       ans.add(0);
+      //       ans.add(memberIndex);
+      //    }
+      // }
+      else ans.add(-1);
 
       return ans;
     }
@@ -147,6 +148,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
 
+      // Handle NPEs in build mode
+
       for(HashMap.Entry<String, ClassRecord> entry: classTable.entrySet()) {
          entry.getValue().calculateSize();
          entry.getValue().countMethods();
@@ -189,26 +192,48 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      if(!build) System.out.println("MAIN");
-      n.f0.accept(this, argu);
-      String className = (String)n.f1.accept(this, argu);
-      if(build) addClass(className, "");
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      n.f5.accept(this, argu);
-      n.f6.accept(this, argu);
-      n.f7.accept(this, argu);
-      n.f8.accept(this, argu);
-      n.f9.accept(this, argu);
-      n.f10.accept(this, argu);
-      n.f11.accept(this, argu);
-      n.f12.accept(this, argu);
-      n.f13.accept(this, argu);
-      n.f14.accept(this, argu);
-      n.f15.accept(this, argu);
-      n.f16.accept(this, argu);
-      if(!build) System.out.println("END");
+      if(build) {
+         n.f0.accept(this, argu);
+         String className = (String)n.f1.accept(this, argu);
+         addClass(className, "");
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+         n.f7.accept(this, argu);
+         n.f8.accept(this, argu);
+         n.f9.accept(this, argu);
+         n.f10.accept(this, argu);
+         n.f11.accept(this, argu);
+         n.f12.accept(this, argu);
+         n.f13.accept(this, argu);
+         n.f14.accept(this, argu);
+         n.f15.accept(this, argu);
+         n.f16.accept(this, argu);
+      }
+      else {
+         System.out.println("MAIN");
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+         n.f7.accept(this, argu);
+         n.f8.accept(this, argu);
+         n.f9.accept(this, argu);
+         n.f10.accept(this, argu);
+         n.f11.accept(this, argu);
+         n.f12.accept(this, argu);
+         n.f13.accept(this, argu);
+         n.f14.accept(this, argu);
+         n.f15.accept(this, argu);
+         n.f16.accept(this, argu);
+         System.out.println("END");
+      }
+
       return _ret;
    }
 
@@ -283,14 +308,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      String idType = (String)n.f0.accept(this, argu);
-      String idName = (String)n.f1.accept(this, argu);
       if(build) {
+         String idType = (String)n.f0.accept(this, argu);
+         String idName = (String)n.f1.accept(this, argu);
          String classScope = getClassScope();
          String methodScope = getMethodScope();
          if(methodScope == null) classTable.get(classScope).addMember(idName, idType);
+         n.f2.accept(this, argu);
       }
-      n.f2.accept(this, argu);
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -313,11 +343,31 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      String className = getClassScope();
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      String methodName = (String)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         String className = getClassScope();
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         String methodName = (String)n.f2.accept(this, argu);
+         currRecord = new MethodRecord(methodName);
+         scope.push(methodName+"()");
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+         n.f7.accept(this, argu);
+         n.f8.accept(this, argu);
+         n.f9.accept(this, argu);
+         n.f10.accept(this, argu);
+         n.f11.accept(this, argu);
+         n.f12.accept(this, argu);
+         classTable.get(className).addMethod(currRecord);
+         scope.pop();
+      }
+      else {
+         String className = getClassScope();
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         String methodName = (String)n.f2.accept(this, argu);
          System.out.print(className + "_" + methodName + " [");
          ArrayList<String> params = classTable.get(className).getParams(methodName);
          tempNo = 1 + params.size();
@@ -327,23 +377,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          tempMap = new HashMap<String, Integer>();
          tempMap.put("this", 0);
          for(int i = 0; i < params.size(); i++) tempMap.put(params.get(i), i+1);
+         scope.push(methodName+"()");
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+         n.f7.accept(this, argu);
+         n.f8.accept(this, argu);
+         n.f9.accept(this, argu);
+         int retExp = (int)n.f10.accept(this, argu);
+         System.out.println("RETURN TEMP " + retExp);
+         n.f11.accept(this, argu);
+         n.f12.accept(this, argu);
+         scope.pop();
+         if(!build) System.out.println("END");
       }
-      if(build) currRecord = new MethodRecord(methodName);
-      scope.push(methodName+"()");
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      n.f5.accept(this, argu);
-      n.f6.accept(this, argu);
-      n.f7.accept(this, argu);
-      n.f8.accept(this, argu);
-      n.f9.accept(this, argu);
-      int retExp = (int)n.f10.accept(this, argu);
-      if(!build) System.out.println("RETURN TEMP " + retExp);
-      n.f11.accept(this, argu);
-      n.f12.accept(this, argu);
-      if(build) classTable.get(className).addMethod(currRecord);
-      scope.pop();
-      if(!build) System.out.println("END");
       return _ret;
    }
 
@@ -368,9 +416,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      n.f0.accept(this, argu);
-      String paramName = (String)n.f1.accept(this, argu);
-      if(build) currRecord.addParam(paramName);
+      if(build) {
+         n.f0.accept(this, argu);
+         String paramName = (String)n.f1.accept(this, argu);
+         currRecord.addParam(paramName);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -474,15 +528,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      String idName = (String)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
+      else {
+         String idName = (String)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " TEMP " + exp);
          tempMap.put(idName, tempNo);
          tempNo++;
+         n.f3.accept(this, argu);
       }
-      n.f3.accept(this, argu);
       return _ret;
    }
 
@@ -499,20 +559,29 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      String idName = (String)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int index = (int)n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      int exp = (int)n.f5.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+      }
+      else {
+         String idName = (String)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int index = (int)n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         int exp = (int)n.f5.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + tempMap.get(idName) + " TEMP " + index);
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
          System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + exp);
          tempNo++;
+         n.f6.accept(this, argu);
       }
-      n.f6.accept(this, argu);
       return _ret;
    }
 
@@ -537,17 +606,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int currLabel = labelNo;
-      labelNo++;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp = (int)n.f2.accept(this, argu);
-      if(!build) {
-         System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
       }
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      if(!build) System.out.println("L" + currLabel);
+      else {
+         int currLabel = labelNo;
+         labelNo++;
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp = (int)n.f2.accept(this, argu);
+         System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         System.out.println("L" + currLabel);
+      }
       return _ret;
    }
 
@@ -564,23 +640,30 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int currLabel = labelNo;
-      labelNo += 2;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp = (int)n.f2.accept(this, argu);
-      if(!build) {
-         System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
       }
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      if(!build) {
+      else {
+         int currLabel = labelNo;
+         labelNo += 2;
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp = (int)n.f2.accept(this, argu);
+         System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
          System.out.println("JUMP L" + (currLabel+1));
          System.out.println("L" + currLabel);
+         n.f5.accept(this, argu);
+         n.f6.accept(this, argu);
+         System.out.println("L" + (currLabel+1));
       }
-      n.f5.accept(this, argu);
-      n.f6.accept(this, argu);
-      System.out.println("L" + (currLabel+1));
       return _ret;
    }
 
@@ -595,18 +678,25 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int currLabel = labelNo;
-      labelNo += 2;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
+      else {
+         int currLabel = labelNo;
+         labelNo += 2;
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp = (int)n.f2.accept(this, argu);
          System.out.println("L" + currLabel);
          System.out.println("CJUMP TEMP " + exp);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         System.out.println("L" + (currLabel+1));
       }
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      System.out.println("L" + (currLabel+1));
       return _ret;
    }
 
@@ -621,12 +711,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp = (int)n.f2.accept(this, argu);
-      if(!build) System.out.println("PRINT TEMP " + exp);
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp = (int)n.f2.accept(this, argu);
+         System.out.println("PRINT TEMP " + exp);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -660,10 +759,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " AND TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -680,10 +784,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " OR TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -700,10 +809,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " LE TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -720,10 +834,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " NE TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -740,10 +859,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -760,10 +884,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -780,10 +909,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -800,10 +934,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp1 = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int exp2 = (int)n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp1 = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int exp2 = (int)n.f2.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " DIV TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -821,11 +960,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      int index = (int)n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
+      else {
+         int exp = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         int index = (int)n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + exp + " TEMP " + index);
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
@@ -846,14 +991,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp = (int)n.f0.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
+      else {
+         int exp = (int)n.f0.accept(this, argu);
          System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
          _ret = (R)((Integer)tempNo);
          tempNo++;
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
       }
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
       return _ret;
    }
 
@@ -869,18 +1019,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int callObj = (int)n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+      }
+      else {
+         int callObj = (int)n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
          // Identify the method
          int methodTemp = -1; //change
          System.out.print("MOVE TEMP " + tempNo++ + "CALL TEMP " + methodTemp + " ( ");
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+         n.f5.accept(this, argu);
+         System.out.println(")");
       }
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      n.f5.accept(this, argu);
-      if(!build) System.out.println(")");
       return _ret;
    }
 
@@ -892,9 +1050,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      int exp = (int)n.f0.accept(this, argu);
-      if(!build) System.out.print("TEMP " + exp + " ");
-      n.f1.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
+      else {
+         int exp = (int)n.f0.accept(this, argu);
+         System.out.print("TEMP " + exp + " ");
+         n.f1.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -906,9 +1070,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      n.f0.accept(this, argu);
-      int exp = (int)n.f1.accept(this, argu);
-      if(!build) System.out.print("TEMP " + exp + " ");
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         int exp = (int)n.f1.accept(this, argu);
+         System.out.print("TEMP " + exp + " ");
+      }
       return _ret;
    }
 
@@ -928,7 +1098,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret = n.f0.accept(this, argu);
       if(!build) {
-         ArrayList<Integer> idCheck = obtainVariable((String)_ret);
+         // Find a different way to check if Identifier
+         ArrayList<Integer> idCheck = obtainVariable(_ret.toString());
          if(idCheck.get(0) != -1) {
             // Do the appropriate
             // If size is 1, great! Just return it
@@ -946,8 +1117,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(IntegerLiteral n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret = null;
-      int val = (int)n.f0.accept(this, argu);
+      R _ret=null;
+      int val = Integer.parseInt((String)n.f0.accept(this, argu));
       if(!build) {
          System.out.println("MOVE TEMP " + tempNo + " " + val);
          _ret = (R)((Integer)tempNo);
@@ -962,7 +1133,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(TrueLiteral n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret = null;
+      R _ret=null;
       n.f0.accept(this, argu);
       if(!build) {
          System.out.println("MOVE TEMP " + tempNo + " 1");
@@ -978,7 +1149,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(FalseLiteral n, A argu) {
 		/* YOUR CODE HERE */
 
-      R _ret = null;
+      R _ret=null;
       n.f0.accept(this, argu);
       if(!build) {
          System.out.println("MOVE TEMP " + tempNo + " 0");
@@ -1021,12 +1192,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      int exp = (int)n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         int exp = (int)n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp + " TEMP " + (tempNo-1));
          tempNo++;
@@ -1068,9 +1246,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 		/* YOUR CODE HERE */
 
       R _ret=null;
-      n.f0.accept(this, argu);
-      int exp = (int)n.f1.accept(this, argu);
-      if(!build) {
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         int exp = (int)n.f1.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo + " NOT TEMP " + exp);
          _ret = (R)((Integer)tempNo);
          tempNo++;
@@ -1151,12 +1333,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       void calculateSize() {
          // Call after building to get size of record
          if(sizeCalculated) return;
-         // size = memberNames.size();
-         // if(!parentName.equals("")) {
-         //    classTable.get(parentName).calculateSize();
-         //    size += classTable.get(parentName).memberNames.size();
-         // }
-         // size *= 4;
          getAllMembers();
          size = 4 * allMembers.size();
          sizeCalculated = true;

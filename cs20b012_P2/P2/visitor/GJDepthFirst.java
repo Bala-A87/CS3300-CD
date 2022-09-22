@@ -6,6 +6,8 @@ package visitor;
 import syntaxtree.*;
 import java.util.*;
 
+// Try debugging by adding print statements to the .java file to run
+
 /**
  * Provides default methods which visit each node in the tree in depth-first
  * order.  Your visitors may extend this class.
@@ -23,6 +25,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     HashMap<String, Integer> tempMap;
     HashMap<Integer, String> typeMap;
     ArrayList<Integer> actualParams;
+    HashMap<Integer, Boolean> hasAddress;
 
     public GJDepthFirst() {
       classTable = new HashMap<String, ClassRecord>();
@@ -34,6 +37,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       tempMap = new HashMap<String, Integer>();
       typeMap = new HashMap<Integer, String>();
       actualParams = new ArrayList<Integer>();
+      hasAddress = new HashMap<Integer, Boolean>();
     }
 
     void addClass(String className, String parentName) {
@@ -63,15 +67,28 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       tempNo++;
       for(HashMap.Entry<String, Integer> entry: classTable.get(className).allMethods.entrySet()) {
          System.out.println("MOVE TEMP " + tempNo + " " + className + "_" + entry.getKey());
-         System.out.println("HSTORE TEMP " + functionTableLoc + " " + entry.getValue() + " TEMP " + tempNo);
+         System.out.println("HSTORE TEMP " + functionTableLoc + " " + (4*entry.getValue()) + " TEMP " + tempNo);
          tempNo++;
       }
       System.out.println("MOVE TEMP " + tempNo++ + " " + objectSize);
       System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
       System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + functionTableLoc);
+      // Try allocating heap space for the members too
       int objectLoc = tempNo;
-      typeMap.put(objectLoc, className);
       tempNo++;
+      ArrayList<String> memberTypes = classTable.get(className).allMemberTypes;
+      for(int i = 0; i < memberTypes.size(); i++) {
+         int memberSize;
+         String memberType = memberTypes.get(i);
+         if(memberType.equals("int") || memberType.equals("boolean") || memberType.equals("int[]")) memberSize = 4;
+         else memberSize = 4 + 4*classTable.get(memberType).size();
+         System.out.println("MOVE TEMP " + tempNo++ + " " + memberSize);
+         System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
+         System.out.println("HSTORE TEMP " + objectLoc + " " + (4*(i+1)) + " TEMP " + tempNo);
+         tempNo++;
+      }
+      typeMap.put(objectLoc, className);
+      hasAddress.put(objectLoc, true);
       return objectLoc;
     }
 
@@ -314,8 +331,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          String idName = (String)n.f1.accept(this, argu);
          // Check if in method or not
          if(getMethodScope() != null) {
+            System.out.println("MOVE TEMP " + tempNo + " 0");
             tempMap.put(idName, tempNo);
             typeMap.put(tempNo, idType);
+            hasAddress.put(tempNo, false);
             tempNo++;
          }
          n.f2.accept(this, argu);
@@ -376,11 +395,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("BEGIN");
          tempMap = new HashMap<String, Integer>();
          typeMap = new HashMap<Integer, String>();
+         hasAddress = new HashMap<Integer, Boolean>();
          tempMap.put("this", 0);
          typeMap.put(0, className);
+         hasAddress.put(0, true);
          for(int i = 0; i < params.size(); i++) {
             tempMap.put(params.get(i), i+1);
             typeMap.put(i+1, paramTypes.get(i));
+            hasAddress.put(i+1, false);
          }
          ArrayList<String> classMembers = classTable.get(className).allMembers;
          ArrayList<String> classMembersTypes = classTable.get(className).allMemberTypes;
@@ -388,6 +410,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             System.out.println("HLOAD TEMP " + tempNo + " TEMP 0 " + (4*(i+1)));
             tempMap.put(classMembers.get(i), tempNo);
             typeMap.put(tempNo, classMembersTypes.get(i));
+            hasAddress.put(tempNo, true);
             tempNo++;
          }
          scope.push(methodName+"()");
@@ -552,7 +575,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int idLoc = obtainVariable(idName);
          n.f1.accept(this, argu);
          int exp = (int)n.f2.accept(this, argu);
-         System.out.println("MOVE TEMP " + idLoc + " TEMP " + exp);
+         if(hasAddress.get(idLoc))
+            System.out.println("HSTORE TEMP " + idLoc + " 0 TEMP " + exp);
+         else
+            System.out.println("MOVE TEMP " + idLoc + " TEMP " + exp);
          n.f3.accept(this, argu);
       }
       return _ret;
@@ -632,6 +658,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          int exp = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            typeMap.put(tempNo, typeMap.get(exp));
+            exp = tempNo;
+            tempNo++;
+         }
          System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
@@ -669,6 +701,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          int exp = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            typeMap.put(tempNo, typeMap.get(exp));
+            exp = tempNo;
+            tempNo++;
+         }
          System.out.println("CJUMP TEMP " + exp + " L" + currLabel);
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
@@ -706,12 +744,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          labelNo += 2;
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
-         int exp = (int)n.f2.accept(this, argu);
          System.out.println("L" + currLabel);
          System.out.println("NOOP");
-         System.out.println("CJUMP TEMP " + exp);
+         int exp = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            typeMap.put(tempNo, typeMap.get(exp));
+            exp = tempNo;
+            tempNo++;
+         }
+         System.out.println("CJUMP TEMP " + exp + " L" + (currLabel+1));
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
+         System.out.println("JUMP L" + currLabel);
          System.out.println("L" + (currLabel+1));
          System.out.println("NOOP");
       }
@@ -740,6 +785,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          int exp = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            exp = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("PRINT TEMP " + exp);
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
@@ -784,11 +836,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "boolean");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "boolean");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -810,13 +877,28 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "boolean");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "boolean");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + exp1 + " TEMP " + exp2);
          System.out.println("MOVE TEMP " + tempNo++ + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + (tempNo-2) + " TEMP " + (tempNo-1));
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -838,11 +920,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " LE TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -864,11 +961,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " NE TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -890,11 +1002,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -916,11 +1043,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -942,11 +1084,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -968,11 +1125,26 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          int exp1 = (int)n.f0.accept(this, argu);
+         if(hasAddress.get(exp1)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp1 + " 0");
+            exp1 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(exp2)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp2 + " 0");
+            exp2 = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo + " DIV TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -998,6 +1170,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int exp = (int)n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          int index = (int)n.f2.accept(this, argu);
+         if(hasAddress.get(index)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + index + " 0");
+            index = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f3.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + exp + " TEMP " + index);
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
@@ -1006,6 +1185,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " 0");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -1030,6 +1210,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
@@ -1083,6 +1264,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          _ret = (R)((Integer)tempNo);
          // Add return type and temp to typeMap
          typeMap.put(tempNo, classTable.get(callObjClass).getReturnType(methodName));
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -1165,6 +1347,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE TEMP " + tempNo + " " + val);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -1182,6 +1365,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE TEMP " + tempNo + " 1");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -1199,6 +1383,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE TEMP " + tempNo + " 0");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;
@@ -1249,16 +1434,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
          int exp = (int)n.f3.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            exp = tempNo;
+            typeMap.put(tempNo, "int");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          n.f4.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp + " TEMP " + (tempNo-1));
          tempNo++;
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
-         System.out.println("MOVE TEMP" + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
+         System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
          tempNo++;
-         System.out.println("MOVE TEMP " + tempNo + "HALLOCATE " + (tempNo-1));
+         System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int[]");
+         hasAddress.put(tempNo, true);
          tempNo++;
       }
       return _ret;
@@ -1299,10 +1492,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          n.f0.accept(this, argu);
          int exp = (int)n.f1.accept(this, argu);
+         if(hasAddress.get(exp)) {
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP " + exp + " 0");
+            exp = tempNo;
+            typeMap.put(tempNo, "boolean");
+            hasAddress.put(tempNo, false);
+            tempNo++;
+         }
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + (tempNo-1) + " TEMP " + exp);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
+         hasAddress.put(tempNo, false);
          tempNo++;
       }
       return _ret;

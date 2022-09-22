@@ -18,10 +18,12 @@ class Element {
     }
 
     public int GetAge(){
+	System.out.println(Age);
 	return Age ;
     }
     
     public int GetSalary(){
+	System.out.println(Salary);
 	return Salary ;
     }
 

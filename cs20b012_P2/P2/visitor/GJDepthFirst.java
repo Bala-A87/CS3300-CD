@@ -665,9 +665,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int exp = (int)n.f5.accept(this, argu);
          exp = checkAndGetValue(exp);
          int idLoc = obtainVariable(idName);
-         System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + idLoc + " TEMP " + index);
+         System.out.println("MOVE TEMP " + tempNo++ + " 1");
+         System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + (tempNo-1) + " TEMP " + index);
+         tempNo++;
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
+         tempNo++;
+         System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + idLoc + " TEMP " + (tempNo-1));
          System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + exp);
          tempNo++;
          n.f6.accept(this, argu);
@@ -1098,9 +1102,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int index = (int)n.f2.accept(this, argu);
          index = checkAndGetValue(index);
          n.f3.accept(this, argu);
-         System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + exp + " TEMP " + index);
+         System.out.println("MOVE TEMP " + tempNo++ + " 1");
+         System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + (tempNo-1) + " TEMP " + index);
+         tempNo++;
          System.out.println("MOVE TEMP " + tempNo++ + " 4");
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
+         tempNo++;
+         System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp + " TEMP " + (tempNo-1));
          tempNo++;
          System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " 0");
          _ret = (R)((Integer)tempNo);
@@ -1173,8 +1181,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
          n.f5.accept(this, argu);
+         for(int i = 0; i < actualParams.size(); i++) 
+            actualParams.set(i, checkAndGetValue(actualParams.get(i)));
          System.out.print("MOVE TEMP " + tempNo + " CALL TEMP " + methodTemp + " ( TEMP " + callObj + " ");
-         for(Integer actualParam: actualParams) System.out.print("TEMP " + checkAndGetValue(actualParam) + " ");
+         for(Integer actualParam: actualParams) System.out.print("TEMP " + actualParam + " ");
          System.out.println(")");
          actualParams = new ArrayList<Integer>(tempStoreParams);
          _ret = (R)((Integer)tempNo);
@@ -1352,6 +1362,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
          tempNo++;
          System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
+         System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + exp);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int[]");
          tempNo++;

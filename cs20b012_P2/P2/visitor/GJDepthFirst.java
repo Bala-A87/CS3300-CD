@@ -39,10 +39,16 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     void addClass(String className, String parentName) {
+      /*
+       * Adds a class, given its name and its parent's name, to the class table
+       */
       classTable.put(className, new ClassRecord(className, parentName));
     }
 
     public String getClassScope() {
+      /*
+       * Determines the current class in code
+       */
       String currScope = scope.peek();
       if(currScope.charAt(currScope.length()-1) == ')')
          return scope.get(scope.size()-2);
@@ -50,6 +56,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     public String getMethodScope() {
+      /*
+       * Determines the current method in code
+       */
       String currScope = scope.peek();
       if(currScope.charAt(currScope.length()-1) == ')')
          return currScope;
@@ -57,12 +66,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     String findClassMemberName(int memLoc) {
+      /*
+       * Given the TEMP value, returns the name of the member of the class
+       * By searching in classMembersMap
+       */
       for(HashMap.Entry<String, Integer> entry: classMembersMap.entrySet())
          if(entry.getValue() == memLoc) return entry.getKey();
       return null;
     }
 
     int buildClass(String className) {
+      /*
+       * Given the class name, constructs a new object of that type
+       * And returns the TEMP number where the object's address is stored
+       */
       int functionTableSize = 4*classTable.get(className).methodCount;
       int objectSize = 4 + classTable.get(className).size();
       System.out.println("MOVE TEMP " + tempNo++ + " " + functionTableSize);
@@ -97,12 +114,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     int obtainVariable(String varName) {  
+      /*
+       * Given the variable name, returns the TEMP number where it is stored
+       * For class members and objects of non-primitive types, this TEMP holds an address
+       */
       if(tempMap.containsKey(varName)) return tempMap.get(varName);
       if(classMembersMap.containsKey(varName)) return classMembersMap.get(varName);
       return -1;
     }
 
     int checkAndGetValue(int varNo) {
+      /*
+       * If the TEMP given stores the address for an int/boolean variable,
+       * Store the value in the address in a new TEMP and return the TEMP number
+       */
       String varType = typeMap.get(varNo);
       if(!tempMap.containsValue(varNo) && classMembersMap.containsValue(varNo) && (varType.equals("int") || varType.equals("boolean"))) {
          System.out.println("HLOAD TEMP " + tempNo + " TEMP " + varNo + " 0");
@@ -114,8 +139,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     }
 
     boolean toStore(int varNo) {
+      /*
+       * Checks whether the value is to be stored using HSTORE
+       * This requires the TEMP to be for an int/boolean class member
+       */
       String varType = typeMap.get(varNo);
-      return (classMembersMap.containsValue(varNo) && (varType.equals("int") || varType.equals("boolean")));
+      return (!tempMap.containsValue(varNo) && classMembersMap.containsValue(varNo) && (varType.equals("int") || varType.equals("boolean")));
     }
 
 	 public R visit(NodeList n, A argu) {
@@ -1133,10 +1162,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          String methodName = (String)n.f2.accept(this, argu);
          // Identify the method
-         int methodTemp = classTable.get(callObjClass).findMethod(methodName); //change
+         int methodTemp = classTable.get(callObjClass).findMethod(methodName);
          // This is the position of the method in the class's function table
          System.out.println("HLOAD TEMP " + tempNo++ + " TEMP " + callObj + " 0");
-         System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " " + methodTemp);
+         System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " " + 4*methodTemp);
          methodTemp = tempNo;
          tempNo++;
          ArrayList<Integer> tempStoreParams = new ArrayList<Integer>(actualParams);
@@ -1439,16 +1468,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
    
       void addMember(String memberName, String memberType) {
+         /*
+          * Adds a new member to the class record
+          */
          memberNames.add(memberName);
          memberTypes.add(memberType);
       }
    
       void addMethod(MethodRecord method) {
+         /*
+          * Adds a new method record to the function table of the class record
+          */
          functionTable.add(method);
       }
    
       void calculateSize() {
-         // Call after building to get size of record
+         // Call after building to compute size of record
          if(sizeCalculated) return;
          getAllMembers();
          size = 4 * allMembers.size();
@@ -1456,7 +1491,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
    
       void countMethods() {
-         // Call after building to get total number of methods
+         // Call after building to compute total number of methods
          if(methodsCounted) return;
          if(!parentName.equals("")) {
             classTable.get(parentName).countMethods();
@@ -1464,23 +1499,32 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          }
          for(MethodRecord method: functionTable) allMethods.add(method);
          methodCount = allMethods.size();
+         methodsCounted = true;
       }
 
       ArrayList<String> getParams(String methodName) {
+         /*
+          * Returns the list of names of formal arguments for a method in the class
+          */
          return allMethods.get(findMethod(methodName)).paramNames;
       }
 
       ArrayList<String> getParamTypes(String methodName) {
+         /*
+          * Returns the list of types of formal arguments for a method in the class
+          */
          return allMethods.get(findMethod(methodName)).paramTypes;
       }
 
       void getAllMembers() {
+         /*
+          * Stores all the members of the class (including those inherited)
+          * Into allMembers, and their types in allMemberTypes
+          */
          if(!parentName.equals("")) {
             classTable.get(parentName).getAllMembers();
-            ArrayList<String> parentMembers = classTable.get(parentName).allMembers;
-            ArrayList<String> parentMemberTypes = classTable.get(parentName).allMemberTypes;
-            allMembers = new ArrayList<String>(parentMembers);
-            allMemberTypes = new ArrayList<String>(parentMemberTypes);
+            allMembers = new ArrayList<String>(classTable.get(parentName).allMembers);
+            allMemberTypes = new ArrayList<String>(classTable.get(parentName).allMemberTypes);
          }
          for(int i = 0; i < memberNames.size(); i++) {
             allMembers.add(memberNames.get(i));
@@ -1489,6 +1533,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
 
       int findMember(String memberName) {
+         /*
+          * Finds the index of the member, given its name,
+          * In the list of all member (including those inherited) of the class
+          */
          for(int i = allMembers.size()-1; i >= 0 ; i--)
             if(memberName.equals(allMembers.get(i)))
                return i;
@@ -1496,6 +1544,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
 
       int findMethod(String methodName) {
+         /*
+          * Finds the index of the method, given its name,
+          * In the list of all methods (including those inherited) of the class
+          */
          for(int i = allMethods.size()-1; i >= 0; i--)
             if(methodName.equals(allMethods.get(i).name))
                return i;
@@ -1503,10 +1555,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
 
       String getReturnType(String methodName) {
+         /*
+          * Finds the return type of a method of the class, given its name
+          */
          return allMethods.get(findMethod(methodName)).returnType;
       }
       
-      int size() { return size; }
+      int size() { 
+         /*
+          * Returns the size of the class object without function table
+          */
+         return size; 
+      }
    
       void printRecord() {
          System.out.println("Class " + name + " extends " + parentName);

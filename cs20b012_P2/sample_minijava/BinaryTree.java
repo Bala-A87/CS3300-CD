@@ -15,9 +15,9 @@ class BT {
 	int nti ;
 
 	root = new Tree();
-	System.out.println(1);
+	// System.out.println(1);
 	ntb = root.Init(16);
-	System.out.println(123);
+	// System.out.println(123);
 	ntb = root.Print();
 	System.out.println(100000000);
 	ntb = root.Insert(8) ;
@@ -53,7 +53,7 @@ class Tree{
 
     // Initialize a node with a key value and no children
     public boolean Init(int v_key){
-	System.out.println(12);
+	// System.out.println(12);
 	key = v_key ;
 	has_left = false ;
 	has_right = false ;
@@ -310,7 +310,7 @@ class Tree{
 	Tree current_node;
 	boolean ntb ;
 	
-	System.out.println(1234);
+	// System.out.println(1234);
 	current_node = this ;
 	ntb = this.RecPrint(current_node);
 	return true ;

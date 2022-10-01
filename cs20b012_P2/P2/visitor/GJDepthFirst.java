@@ -379,7 +379,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          String idName = (String)n.f1.accept(this, argu);
          // Check if in method or not
          if(getMethodScope() != null) {
-            System.out.println("MOVE TEMP " + tempNo + " 0");
+            // System.out.println("MOVE TEMP " + tempNo + " 0");
             tempMap.put(idName, tempNo);
             typeMap.put(tempNo, idType);
             tempNo++;
@@ -624,8 +624,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          if(toStore(idLoc))
             System.out.println("HSTORE TEMP " + idLoc + " 0 TEMP " + exp);
          else if(classMembersMap.containsValue(idLoc)) {
-            int memLoc = 4*(1+classTable.get(getClassScope()).findMember(findClassMemberName(idLoc)));
+            int memberIndex = classTable.get(getClassScope()).findMember(findClassMemberName(idLoc));
+            int memLoc = 4*(1 + memberIndex);
             System.out.println("HSTORE TEMP 0 " + memLoc + " TEMP " + exp);
+            System.out.println("HLOAD TEMP " + tempNo + " TEMP 0 " + memLoc);
+            classMembersMap.put(classTable.get(getClassScope()).allMembers.get(memberIndex), tempNo);
+            typeMap.put(tempNo, classTable.get(getClassScope()).allMemberTypes.get(memberIndex));
+            tempNo++;
          }
          else
             System.out.println("MOVE TEMP " + idLoc + " TEMP " + exp);
@@ -1354,6 +1359,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f2.accept(this, argu);
          int exp = (int)n.f3.accept(this, argu);
          exp = checkAndGetValue(exp);
+         // System.out.println("PRINT TEMP " + exp);
          n.f4.accept(this, argu);
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp + " TEMP " + (tempNo-1));
@@ -1363,9 +1369,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          tempNo++;
          System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
          System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + exp);
+         // System.out.println("PRINT TEMP " + (tempNo-4));
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int[]");
          tempNo++;
+         // System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " 0");
+         // System.out.println("PRINT TEMP " + tempNo++);
       }
       return _ret;
    }

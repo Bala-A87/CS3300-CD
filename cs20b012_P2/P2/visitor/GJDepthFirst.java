@@ -82,23 +82,27 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
        */
       int functionTableSize = 4*classTable.get(className).methodCount;
       int objectSize = 4 + classTable.get(className).size();
+      // Make space for function table
       System.out.println("MOVE TEMP " + tempNo++ + " " + functionTableSize);
       System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
       int functionTableLoc = tempNo;
       tempNo++;
       ArrayList<MethodRecord> classMethods = new ArrayList<MethodRecord>(classTable.get(className).allMethods);
+      // Add all methods to the function table
       for(int i = 0; i < classMethods.size(); i++) {
          MethodRecord currMethod = classMethods.get(i);
          System.out.println("MOVE TEMP " + tempNo + " " + currMethod.className + "_" + currMethod.name);
          System.out.println("HSTORE TEMP " + functionTableLoc + " " + (4*i) + " TEMP " + tempNo);
          tempNo++;
       }
+      // Allocate space for the new object and place the function table in it
       System.out.println("MOVE TEMP " + tempNo++ + " " + objectSize);
       System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
       System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + functionTableLoc);
       int objectLoc = tempNo;
       tempNo++;
       ArrayList<String> memberTypes = classTable.get(className).allMemberTypes;
+      // Allocate initial space for class members
       for(int i = 0; i < memberTypes.size(); i++) {
          int memberSize;
          String memberType = memberTypes.get(i);
@@ -208,15 +212,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);
 
+      // Obtaining all members and methods (determining the inherited ones) is done here
+      // Needs to be done after the tables are built since parent class may appear after child
       for(HashMap.Entry<String, ClassRecord> entry: classTable.entrySet()) {
          entry.getValue().calculateSize();
          entry.getValue().countMethods();
       }
-
-      // System.out.println("Build complete");
-
-      // for(HashMap.Entry<String, ClassRecord> entry: classTable.entrySet())
-      //    entry.getValue().printRecord(); 
 
       build = false;
 
@@ -377,9 +378,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          String idType = (String)n.f0.accept(this, argu);
          String idName = (String)n.f1.accept(this, argu);
-         // Check if in method or not
+         // Check if in method or not, if so, need to set aside a TEMP for the local variables
          if(getMethodScope() != null) {
-            // System.out.println("MOVE TEMP " + tempNo + " 0");
             tempMap.put(idName, tempNo);
             typeMap.put(tempNo, idType);
             tempNo++;
@@ -443,6 +443,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          tempMap = new HashMap<String, Integer>();
          typeMap = new HashMap<Integer, String>();
          classMembersMap = new HashMap<String, Integer>();
+         // Set aside TEMPs for all the parameters, including calling object
          tempMap.put("this", 0);
          typeMap.put(0, className);
          for(int i = 0; i < params.size(); i++) {
@@ -451,13 +452,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          }
          ArrayList<String> classMembers = classTable.get(className).allMembers;
          ArrayList<String> classMembersTypes = classTable.get(className).allMemberTypes;
+         // Set aside some TEMPs for the class members too
          for(int i = 0; i < classMembers.size(); i++) {
             System.out.println("HLOAD TEMP " + tempNo + " TEMP 0 " + (4*(i+1)));
             classMembersMap.put(classMembers.get(i), tempNo);
             typeMap.put(tempNo, classMembersTypes.get(i));
             tempNo++;
          }
-         scope.push(methodName+"()");
+         scope.push(methodName+"()"); //Just a convenience construct
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
          n.f5.accept(this, argu);
@@ -621,9 +623,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          int exp = (int)n.f2.accept(this, argu);
          exp = checkAndGetValue(exp);
-         if(toStore(idLoc))
+         if(toStore(idLoc)) // A value (int/boolean) to be stored at this memory address
             System.out.println("HSTORE TEMP " + idLoc + " 0 TEMP " + exp);
          else if(classMembersMap.containsValue(idLoc)) {
+            // An address to replace the existing address
+            // So we need to find the location of the member in the class
             int memberIndex = classTable.get(getClassScope()).findMember(findClassMemberName(idLoc));
             int memLoc = 4*(1 + memberIndex);
             System.out.println("HSTORE TEMP 0 " + memLoc + " TEMP " + exp);
@@ -632,7 +636,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             typeMap.put(tempNo, classTable.get(getClassScope()).allMemberTypes.get(memberIndex));
             tempNo++;
          }
-         else
+         else // Just a local variable, so can be moved into it
             System.out.println("MOVE TEMP " + idLoc + " TEMP " + exp);
          n.f3.accept(this, argu);
       }
@@ -670,6 +674,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int exp = (int)n.f5.accept(this, argu);
          exp = checkAndGetValue(exp);
          int idLoc = obtainVariable(idName);
+         // The +1 is required because the 0th index holds length
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + (tempNo-1) + " TEMP " + index);
          tempNo++;
@@ -879,6 +884,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
          exp2 = checkAndGetValue(exp2);
+         // Booleans, 1 is true, 0 is false => a && b <=> a * b
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
@@ -907,6 +913,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          int exp2 = (int)n.f2.accept(this, argu);
          exp2 = checkAndGetValue(exp2);
+         // a || b <=> !(!a && !b) <=> 1 - (1-a)*(1-b) <=> a + b - a*b
          System.out.println("MOVE TEMP " + tempNo++ + " PLUS TEMP " + exp1 + " TEMP " + exp2);
          System.out.println("MOVE TEMP " + tempNo++ + " TIMES TEMP " + exp1 + " TEMP " + exp2);
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + (tempNo-2) + " TEMP " + (tempNo-1));
@@ -1107,6 +1114,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int index = (int)n.f2.accept(this, argu);
          index = checkAndGetValue(index);
          n.f3.accept(this, argu);
+         // +1 needed to account for 0th index holding array length
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + (tempNo-1) + " TEMP " + index);
          tempNo++;
@@ -1173,8 +1181,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int callObj = (int)n.f0.accept(this, argu);
          String callObjClass = typeMap.get(callObj);
          n.f1.accept(this, argu);
-         String methodName = (String)n.f2.accept(this, argu);
          // Identify the method
+         String methodName = (String)n.f2.accept(this, argu);
          int methodTemp = classTable.get(callObjClass).findMethod(methodName);
          // This is the position of the method in the class's function table
          System.out.println("HLOAD TEMP " + tempNo++ + " TEMP " + callObj + " 0");
@@ -1183,6 +1191,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          tempNo++;
          ArrayList<Integer> tempStoreParams = new ArrayList<Integer>(actualParams);
          actualParams = new ArrayList<Integer>();
+         // To avoid accumulating wrong arguments if an argument is a method call
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
          n.f5.accept(this, argu);
@@ -1256,6 +1265,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret = n.f0.accept(this, argu);
       if(!build) {
+         // If the expression is an identifier, find its TEMP and return for uniformity
          int idCheck = obtainVariable(_ret.toString());
          if(idCheck != -1) _ret = (R)((Integer)idCheck);
       }
@@ -1288,6 +1298,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       if(!build) {
+         // true => 1
          System.out.println("MOVE TEMP " + tempNo + " 1");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
@@ -1305,6 +1316,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       if(!build) {
+         // false => 0
          System.out.println("MOVE TEMP " + tempNo + " 0");
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "boolean");
@@ -1331,6 +1343,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       R _ret=null;
       n.f0.accept(this, argu);
+      // this is always the calling object, i.e., TEMP 0
       if(!build) _ret = (R)((Integer)0);
       return _ret;
    }
@@ -1359,8 +1372,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f2.accept(this, argu);
          int exp = (int)n.f3.accept(this, argu);
          exp = checkAndGetValue(exp);
-         // System.out.println("PRINT TEMP " + exp);
          n.f4.accept(this, argu);
+         // Allocate (size+1)*4 bytes, and use first 4 bytes for length
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " PLUS TEMP " + exp + " TEMP " + (tempNo-1));
          tempNo++;
@@ -1368,13 +1381,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE TEMP " + tempNo + " TIMES TEMP " + (tempNo-1) + " TEMP " + (tempNo-2));
          tempNo++;
          System.out.println("MOVE TEMP " + tempNo + " HALLOCATE TEMP " + (tempNo-1));
+         // Store the length
          System.out.println("HSTORE TEMP " + tempNo + " 0 TEMP " + exp);
-         // System.out.println("PRINT TEMP " + (tempNo-4));
          _ret = (R)((Integer)tempNo);
          typeMap.put(tempNo, "int[]");
          tempNo++;
-         // System.out.println("HLOAD TEMP " + tempNo + " TEMP " + (tempNo-1) + " 0");
-         // System.out.println("PRINT TEMP " + tempNo++);
       }
       return _ret;
    }
@@ -1415,6 +1426,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          int exp = (int)n.f1.accept(this, argu);
          exp = checkAndGetValue(exp);
+         // true = 1, false = 0 => !a <=> 1 - a
          System.out.println("MOVE TEMP " + tempNo++ + " 1");
          System.out.println("MOVE TEMP " + tempNo + " MINUS TEMP " + (tempNo-1) + " TEMP " + exp);
          _ret = (R)((Integer)tempNo);
@@ -1435,7 +1447,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       R exp = n.f1.accept(this, argu);
-      if(!build) _ret = exp;
+      if(!build) _ret = exp; // Nothing to do
       n.f2.accept(this, argu);
       return _ret;
    }
@@ -1517,7 +1529,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             classTable.get(parentName).countMethods();
             allMethods = new ArrayList<MethodRecord>(classTable.get(parentName).allMethods);
          }
-         for(MethodRecord method: functionTable) allMethods.add(method);
+         // In order to handle inheritance, an existing method is overwritten by a newer one seen later
+         for(MethodRecord method: functionTable) {
+            int methodIndex = findMethod(method.name);
+            if(methodIndex != -1)
+               allMethods.set(methodIndex, method);
+            else
+               allMethods.add(method);
+         }
          methodCount = allMethods.size();
          methodsCounted = true;
       }
@@ -1546,18 +1565,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             allMembers = new ArrayList<String>(classTable.get(parentName).allMembers);
             allMemberTypes = new ArrayList<String>(classTable.get(parentName).allMemberTypes);
          }
+         // In order to handle inheritance, an existing member is overwritten by a newer one seen later
          for(int i = 0; i < memberNames.size(); i++) {
-            allMembers.add(memberNames.get(i));
-            allMemberTypes.add(memberTypes.get(i));
+            int memberIndex = findMember(memberNames.get(i));
+            if(memberIndex != -1) 
+               allMemberTypes.set(memberIndex, memberTypes.get(i));
+            else {
+               allMembers.add(memberNames.get(i));
+               allMemberTypes.add(memberTypes.get(i));
+            }
          }
       }
 
       int findMember(String memberName) {
          /*
           * Finds the index of the member, given its name,
-          * In the list of all member (including those inherited) of the class
+          * In the list of all members (including those inherited) of the class
           */
-         for(int i = allMembers.size()-1; i >= 0 ; i--)
+         for(int i = 0; i < allMembers.size(); i++)
             if(memberName.equals(allMembers.get(i)))
                return i;
          return -1;
@@ -1568,7 +1593,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
           * Finds the index of the method, given its name,
           * In the list of all methods (including those inherited) of the class
           */
-         for(int i = allMethods.size()-1; i >= 0; i--)
+          for(int i = 0; i < allMethods.size(); i++)
             if(methodName.equals(allMethods.get(i).name))
                return i;
          return -1;
@@ -1586,17 +1611,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
           * Returns the size of the class object without function table
           */
          return size; 
-      }
-   
-      void printRecord() {
-         System.out.println("Class " + name + " extends " + parentName);
-         System.out.println("Size: " + size);
-         System.out.println("Members:");
-         for(int i = 0; i < memberNames.size(); i++)
-            System.out.println(memberNames.get(i) + ": " + memberTypes.get(i));
-         System.out.println("Methods: (count = " + methodCount + ")");
-         for(MethodRecord method: functionTable) method.printRecord();
-         System.out.println("\n");
       }
    }
    
@@ -1617,15 +1631,5 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          paramNames.add(paramName);
          paramTypes.add(paramType);
       }
-   
-      void printRecord() {
-         System.out.println(name);
-         for(String param: paramNames) System.out.print(param + " ");
-         System.out.println("");
-      }
    }
-   
-
 }
-
-

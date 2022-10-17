@@ -1,0 +1,12 @@
+make class for variable, keep scope and spill status, and allocated register
+
+2 passes:
+	first pass - build control flow graph
+		followed by finding use, def and liveness, keep note of variables to spill
+		spill the variables and redo liveness
+	second pass - translation
+
+conditionals:
+	use cjumps to find the "true labels"
+	when seeing the label, add edge between the condition stmt and the stmt following the label
+	

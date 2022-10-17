@@ -18,6 +18,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    //
    // Auto class visitors--probably don't need to be overridden.
    //
+
+    int noSpilled;
+    boolean build;
+    BasicBlock currStmt;
+    String currScope;
+    HashMap<String, HashMap<Integer, TEMP>> tempMap;
+    BasicBlock controlFlowGraph;
+
+    public GJDepthFirst() {
+      noSpilled = 0;
+      build = true;
+      currStmt = null;
+      currScope = null;
+      tempMap = new HashMap<String, HashMap<Integer, TEMP>>();
+      controlFlowGraph = null;
+    }
 	
 	
    public R visit(NodeList n, A argu) {
@@ -98,6 +114,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f2.accept(this, argu);      
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);      
+
+      build = false;
+
+      n.f0.accept(this, argu);
+      n.f1.accept(this, argu);
+      n.f2.accept(this, argu);      
+      n.f3.accept(this, argu);
+      n.f4.accept(this, argu);  
+
       return _ret;
    }
 
@@ -122,7 +147,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Stmt n, A argu) {
       R _ret=null;  
-      n.f0.accept(this, argu);      
+      if(build) {
+         currStmt = new BasicBlock();
+         n.f0.accept(this, argu);   
+         // how to add to CFG? 
+      }
+      else {
+         n.f0.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -151,9 +183,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(CJumpStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         // currStmt.addUse(null);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -333,8 +373,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     * f0 -> <INTEGER_LITERAL>
     */
    public R visit(IntegerLiteral n, A argu) {
-      R _ret=null;
-      n.f0.accept(this, argu);
+      R _ret=n.f0.accept(this, argu);
       return _ret;
    }
 
@@ -345,6 +384,81 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       return _ret;
+   }
+
+   class TEMP {
+      int no;
+      String scope;
+      boolean spilled;
+      String allocatedRegister;
+      int spilledArgNo;
+
+      public TEMP(int tempNo, String currScope) {
+         no = tempNo;
+         scope = new String(currScope);
+         spilled = false;
+         allocatedRegister = "";
+         spilledArgNo = -1;
+      }
+
+      public void allocateRegister(String register) {
+         spilled = false;
+         allocatedRegister = new String(register);
+      }
+
+      public void spillArg() {
+         spilled = true;
+         spilledArgNo = noSpilled++;
+      }
+
+      public boolean equals(TEMP arg) {
+         return (no == arg.no && scope.equals(arg.scope));
+      }
+   }
+
+   class BasicBlock {
+      // BasicBlock prev;
+      Set<TEMP> used, def, liveIn, liveOut;
+      ArrayList<BasicBlock> succ;
+
+
+      public BasicBlock() {
+         // this.prev = prev;
+         used = new HashSet<TEMP>();
+         def = new HashSet<TEMP>();
+         liveIn = new HashSet<TEMP>();
+         liveOut = new HashSet<TEMP>();
+         succ = new ArrayList<BasicBlock>();
+      }
+
+      public void addUse(TEMP usedTemp) {
+         used.add(usedTemp);
+      }
+
+      public void addDef(TEMP defTemp) {
+         def.add(defTemp);
+      }
+
+      public void addSuccessor(BasicBlock succ) {
+         this.succ.add(succ);
+      }
+
+      public void getLiveness() {
+         getLiveOut();
+         getLiveIn();
+      }
+
+      public void getLiveIn() {
+         liveIn.addAll(used);
+         Set<TEMP> out_def = new HashSet<TEMP>(liveOut);
+         for(TEMP defn : def)
+            out_def.remove(defn);
+         liveIn.addAll(out_def);
+      }
+
+      public void getLiveOut() {
+         for(BasicBlock succBlock : succ) liveOut.addAll(succBlock.liveIn);
+      }
    }
 
 }

@@ -24,15 +24,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     BasicBlock currStmt;
     String currScope;
     HashMap<String, HashMap<Integer, TEMP>> tempMap;
-    BasicBlock controlFlowGraph;
+    ControlFlowGraph controlFlowGraph;
 
     public GJDepthFirst() {
       noSpilled = 0;
       build = true;
       currStmt = null;
       currScope = null;
-      tempMap = new HashMap<String, HashMap<Integer, TEMP>>();
-      controlFlowGraph = null;
+      tempMap = null;
+      controlFlowGraph = new ControlFlowGraph();
     }
 	
 	
@@ -88,11 +88,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Procedure n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);      
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);    
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
+      if(build) {
+         String procedureName = (String)(n.f0.accept(this, argu));      
+         n.f1.accept(this, argu);
+         Integer noOfArguments = (Integer)(n.f2.accept(this, argu));    
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);      
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);    
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -109,7 +118,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Goal n, A argu) {
       R _ret=null;
+
       n.f0.accept(this, argu);
+      currScope = "MAIN";
+      tempMap =  new HashMap<String, HashMap<Integer, TEMP>>();
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);      
       n.f3.accept(this, argu);
@@ -150,7 +162,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          currStmt = new BasicBlock();
          n.f0.accept(this, argu);   
-         // how to add to CFG? 
+         controlFlowGraph.addNode(currStmt);
       }
       else {
          n.f0.accept(this, argu);
@@ -163,7 +175,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(NoOpStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -172,7 +189,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(ErrorStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -185,9 +207,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       if(build) {
          n.f0.accept(this, argu);
-         n.f1.accept(this, argu);
+         Integer tempNo = (Integer)(n.f1.accept(this, argu));
+         TEMP usedTemp = tempMap.get(currScope).get(tempNo);
+         currStmt.addUse(usedTemp);
          n.f2.accept(this, argu);
-         // currStmt.addUse(null);
       }
       else {
          n.f0.accept(this, argu);
@@ -203,8 +226,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(JumpStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -216,10 +245,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HStoreStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         Integer tempNo = (Integer)(n.f1.accept(this, argu));
+         TEMP locationTemp = tempMap.get(currScope).get(tempNo);
+         n.f2.accept(this, argu);
+         tempNo = (Integer)(n.f3.accept(this, argu));
+         TEMP storageTemp = tempMap.get(currScope).get(tempNo);
+         currStmt.addUse(locationTemp);
+         currStmt.addDef(storageTemp);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -231,10 +272,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HLoadStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         Integer tempNo = (Integer)(n.f1.accept(this, argu));
+         TEMP storageTemp = tempMap.get(currScope).get(tempNo);
+         tempNo = (Integer)(n.f2.accept(this, argu));
+         TEMP locationTemp = tempMap.get(currScope).get(tempNo);
+         currStmt.addUse(locationTemp);
+         currStmt.addDef(storageTemp);
+         n.f3.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -245,9 +298,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(MoveStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         Integer tempNo = (Integer)(n.f1.accept(this, argu));
+         TEMP destinationTemp = tempMap.get(currScope).get(tempNo);
+         currStmt.addDef(destinationTemp);
+         n.f2.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -257,8 +319,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(PrintStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);      
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);  
+      }    
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);  
+      }
       return _ret;
    }
 
@@ -300,12 +368,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Call n, A argu) {
       R _ret=null;
-      
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
-      n.f4.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -315,8 +391,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HAllocate n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -327,9 +409,18 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(BinOp n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         Integer tempNo = (Integer)(n.f1.accept(this, argu));
+         TEMP usedTemp = tempMap.get(currScope).get(tempNo);
+         currStmt.addUse(usedTemp);
+         n.f2.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -342,8 +433,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     *       | "DIV"
     */
    public R visit(Operator n, A argu) {
-      R _ret=null;
-      n.f0.accept(this, argu);
+      R _ret=n.f0.accept(this, argu);
       return _ret;
    }
 
@@ -365,8 +455,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(Temp n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      return _ret;
+      R tempNo = n.f1.accept(this, argu);
+      return tempNo;
    }
 
    /**
@@ -381,8 +471,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     * f0 -> <IDENTIFIER>
     */
    public R visit(Label n, A argu) {
-      R _ret=null;
-      n.f0.accept(this, argu);
+      R _ret=n.f0.accept(this, argu);
       return _ret;
    }
 
@@ -399,6 +488,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          spilled = false;
          allocatedRegister = "";
          spilledArgNo = -1;
+      }
+
+      public TEMP(TEMP copy) {
+         no = copy.no;
+         scope = new String(copy.scope);
+         spilled = copy.spilled;
+         allocatedRegister = new String(copy.allocatedRegister);
+         spilledArgNo = copy.spilledArgNo;
       }
 
       public void allocateRegister(String register) {
@@ -431,6 +528,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          succ = new ArrayList<BasicBlock>();
       }
 
+      public BasicBlock(BasicBlock copy) {
+         used = new HashSet<TEMP>(copy.used);
+         def = new HashSet<TEMP>(copy.def);
+         liveIn = new HashSet<TEMP>(copy.liveIn);
+         liveOut = new HashSet<TEMP>(copy.liveOut);
+         succ = new ArrayList<BasicBlock>(copy.succ);
+      }
+
       public void addUse(TEMP usedTemp) {
          used.add(usedTemp);
       }
@@ -458,6 +563,29 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       public void getLiveOut() {
          for(BasicBlock succBlock : succ) liveOut.addAll(succBlock.liveIn);
+      }
+   }
+
+   class ControlFlowGraph {
+      BasicBlock start;
+      BasicBlock last;
+
+      public ControlFlowGraph() {
+         start = null;
+         last = null;
+      }
+
+      public void addNode(BasicBlock newNode) {
+         // May have to be modified to allow addition to jumps
+         if(last == null) {
+            start = new BasicBlock(newNode);
+            last = start;
+         }
+         else {
+            BasicBlock addedNode = new BasicBlock(newNode);
+            last.addSuccessor(addedNode);
+            last = addedNode;
+         }
       }
    }
 

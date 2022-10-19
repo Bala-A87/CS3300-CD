@@ -31,9 +31,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       build = true;
       currStmt = null;
       currScope = null;
-      tempMap = null;
+      tempMap = new HashMap<String, HashMap <Integer, TEMP>>();
       controlFlowGraph = new ControlFlowGraph();
     }
+
+
+   //  Implement Linear Scan Algorithm here  
 	
 	
    public R visit(NodeList n, A argu) {
@@ -89,7 +92,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(Procedure n, A argu) {
       R _ret=null;
       if(build) {
-         String procedureName = (String)(n.f0.accept(this, argu));      
+         String procedureName = (String)(n.f0.accept(this, argu));   
+         currScope = new String(procedureName);   
+         tempMap.put(currScope, new HashMap<Integer, TEMP>());
          n.f1.accept(this, argu);
          Integer noOfArguments = (Integer)(n.f2.accept(this, argu));    
          n.f3.accept(this, argu);
@@ -121,13 +126,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       n.f0.accept(this, argu);
       currScope = "MAIN";
-      tempMap =  new HashMap<String, HashMap<Integer, TEMP>>();
+      tempMap.put(currScope, new HashMap<Integer, TEMP>());
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);      
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);      
 
       build = false;
+      controlFlowGraph.computeLiveness();
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -548,6 +554,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          this.succ.add(succ);
       }
 
+      public void findNodeLiveness() {
+         for(BasicBlock successor : succ) successor.findNodeLiveness();
+         getLiveness();
+      }
+
       public void getLiveness() {
          getLiveOut();
          getLiveIn();
@@ -586,6 +597,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             last.addSuccessor(addedNode);
             last = addedNode;
          }
+      }
+
+      public void computeLiveness() {
+         start.findNodeLiveness();
       }
    }
 

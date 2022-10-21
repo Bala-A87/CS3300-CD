@@ -17,46 +17,54 @@ import java.util.*;
 public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
    boolean build;
-   int noSpilled;
-   HashMap<String, HashMap<Integer, String>> allocatedRegister;
-   HashMap<String, HashMap<Integer, Integer>> spillValue;
-   String currScope;
-   int noOfArgs;
-   int passedArgs;
-   HashMap<String, Integer> spillCount;
-   HashMap<String, Integer> maxArgs;
    final String[] REGISTERS = {
       "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7",
       "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9"
-    };
+   };
+   String currScope;
+   HashMap<String, HashMap<Integer, String>> allocatedRegisters;
+   HashMap<String, HashMap<Integer, Integer>> spillValue;
+   HashMap<Integer, BasicBlock> stmtMap;
+   int stmtNo;
+   HashMap<String, ArrayList<String>> procedureCalls;
+   HashMap<String, Integer> callArgs;
+   int currNoOfArgs;
 
    public GJDepthFirst() {
       build = true;
-      noSpilled = 0;
-      allocatedRegister = new HashMap<String, HashMap<Integer, String>>();
-      spillValue = new HashMap<String, HashMap<Integer, Integer>>();
       currScope = "MAIN";
-      noOfArgs = 0;
-      passedArgs = 0;
-      spillCount = new HashMap<String, Integer>();
-      maxArgs = new HashMap<String, Integer>();
+      allocatedRegisters = new HashMap<String, HashMap<Integer, String>>();
+      spillValue = new HashMap<String, HashMap<Integer, Integer>>();
+      stmtMap = new HashMap<Integer, BasicBlock>();
+      stmtNo = 0;
+      procedureCalls = new HashMap<String, ArrayList<String>>();
+      callArgs = new HashMap<String, Integer>();
+      currNoOfArgs = 0;
    }
 
-   public boolean isArg(int tempNo) {
-      return tempNo < noOfArgs;
+   public void recordUse(int tempNo) {
+      stmtMap.get(stmtNo).addUse(tempNo);
+   }
+
+   public void recordDef(int tempNo) {
+      stmtMap.get(stmtNo).addDef(tempNo);
    }
 
    public void allocateRegister(int tempNo) {
-      if(allocatedRegister.get(currScope).size() < REGISTERS.length && !allocatedRegister.get(currScope).containsKey(tempNo))
-         allocatedRegister.get(currScope).put(tempNo, REGISTERS[allocatedRegister.get(currScope).size()]);
-      else if(!allocatedRegister.get(currScope).containsKey(tempNo) && !spillValue.get(currScope).containsKey(tempNo)) {
-         noSpilled++;
-         spillValue.get(currScope).put(tempNo, spillValue.get(currScope).size()); //may need modification
-      }
+      if(allocatedRegisters.get(currScope).size() < REGISTERS.length && !allocatedRegisters.get(currScope).containsKey(tempNo))
+         allocatedRegisters.get(currScope).put(tempNo, REGISTERS[allocatedRegisters.get(currScope).size()]);
+      else if(!allocatedRegisters.get(currScope).containsKey(tempNo) && !spillValue.get(currScope).containsKey(tempNo))
+         spillValue.get(currScope).put(tempNo, spillValue.get(currScope).size()+1);
    }
 
-
-
+   public int maxCallArgs(String procedureName) {
+      int ans = 0;
+      for(String calledProcedure : procedureCalls.get(procedureName)) {
+         int currCallArgs = callArgs.get(calledProcedure);
+         if(currCallArgs > ans) ans = currCallArgs;
+      }
+      return ans;
+   }
 
    //
    // Auto class visitors--probably don't need to be overridden.
@@ -115,19 +123,28 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Procedure n, A argu) {
       R _ret=null;
-      String procedureName = (String)n.f0.accept(this, argu);     
-      currScope = new String(procedureName);
-      n.f1.accept(this, argu);
-      noOfArgs = (int)((Integer)n.f2.accept(this, argu));    
-      n.f3.accept(this, argu);
 
       if(build) {
-         allocatedRegister.put(currScope, new HashMap<Integer, String>());
+         String procedureName = (String)n.f0.accept(this, argu);  
+         currScope = new String(procedureName);
+         allocatedRegisters.put(currScope, new HashMap<Integer, String>());
          spillValue.put(currScope, new HashMap<Integer, Integer>());
+         procedureCalls.put(currScope, new ArrayList<String>());
+         n.f1.accept(this, argu);
+         currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
+         callArgs.put(currScope, currNoOfArgs);
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
       }
-      
+      else {
+         String procedureName = (String)n.f0.accept(this, argu);  
+         currScope = new String(procedureName);
+         n.f1.accept(this, argu);
+         currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
+         n.f3.accept(this, argu);
+         n.f4.accept(this, argu);
+      }
 
-      n.f4.accept(this, argu);
       return _ret;
    }
 
@@ -144,16 +161,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Goal n, A argu) {
       R _ret=null;
-      allocatedRegister.put(currScope, new HashMap<Integer, String>());
+
+      allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
+      procedureCalls.put(currScope, new ArrayList<String>());
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
       n.f2.accept(this, argu);      
       n.f3.accept(this, argu);
-      n.f4.accept(this, argu); 
-      
+      n.f4.accept(this, argu);      
+
       build = false;
+      currScope = new String("MAIN");
+      currNoOfArgs = 0;
+      stmtNo = 0;
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -185,7 +207,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Stmt n, A argu) {
       R _ret=null;  
-      n.f0.accept(this, argu);      
+      stmtNo++;
+      if(build) {
+         stmtMap.put(stmtNo, new BasicBlock());
+         n.f0.accept(this, argu);  
+      }    
+      else {
+         System.out.println("");
+         n.f0.accept(this, argu); 
+      }
       return _ret;
    }
 
@@ -195,6 +225,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(NoOpStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
+      if(!build) System.out.print("NOOP");
       return _ret;
    }
 
@@ -204,6 +235,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(ErrorStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
+      if(!build) System.out.print("ERROR");
       return _ret;
    }
 
@@ -214,9 +246,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(CJumpStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         int tempNo = (int)((Integer)n.f1.accept(this, argu));
+         recordUse(tempNo);
+         n.f2.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -227,6 +267,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(JumpStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
+      if(!build) System.out.print("JUMP ");
       n.f1.accept(this, argu);
       return _ret;
    }
@@ -239,10 +280,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HStoreStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         int memBase = (int)((Integer)n.f1.accept(this, argu));
+         recordUse(memBase);
+         n.f2.accept(this, argu);
+         int tempNo = (int)((Integer)n.f3.accept(this, argu));
+         recordUse(tempNo);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -254,10 +305,20 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(HLoadStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      n.f3.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         int tempNo = (int)((Integer)n.f1.accept(this, argu));
+         recordDef(tempNo);
+         int memBase = (int)((Integer)n.f2.accept(this, argu));
+         recordUse(memBase);
+         n.f3.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+         n.f3.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -268,9 +329,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(MoveStmt n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         int tempNo = (int)((Integer)n.f1.accept(this, argu));
+         recordDef(tempNo);
+         n.f2.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -350,9 +419,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(BinOp n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
+      if(build) {
+         n.f0.accept(this, argu);
+         int tempNo = (int)((Integer)n.f1.accept(this, argu));
+         recordUse(tempNo);
+         n.f2.accept(this, argu);
+      }
+      else {
+         n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
+         n.f2.accept(this, argu);
+      }
       return _ret;
    }
 
@@ -366,6 +443,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Operator n, A argu) {
       R _ret=n.f0.accept(this, argu);
+      if(!build) System.out.print((String)_ret + " ");
       return _ret;
    }
 
@@ -376,6 +454,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(SimpleExp n, A argu) {
       R _ret=n.f0.accept(this, argu);
+      // Try using which here
+      if(build) {
+         if(n.f0.which == 0) recordUse((int)((Integer)_ret));
+      }
       return _ret;
    }
 
@@ -387,9 +469,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       int tempNo = (int)((Integer)n.f1.accept(this, argu));
-      // Todo
       if(build) {
-         if(!isArg(tempNo)) allocateRegister(tempNo);
+         allocateRegister(tempNo);
+      }
+      else {
+         // Do the work
       }
       return _ret;
    }
@@ -407,10 +491,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Label n, A argu) {
       R _ret=n.f0.accept(this, argu);
-
-      if(!build) System.out.print((String)_ret);
-      
+      if(!build) System.out.print((String)_ret + " ");
       return _ret;
    }
 
+   class BasicBlock {
+      ArrayList<Integer> use, def;
+
+      public BasicBlock() {
+         use = new ArrayList<Integer>();
+         def = new ArrayList<Integer>();
+      }
+
+      public void addUse(int usedTemp) {
+         use.add(usedTemp);
+      }
+
+      public void addDef(int defTemp) {
+         def.add(defTemp);
+      }
+   }
 }

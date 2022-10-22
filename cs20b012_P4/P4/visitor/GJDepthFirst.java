@@ -27,7 +27,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, Integer> noSpilled;
    HashMap<Integer, BasicBlock> stmtMap;
    int stmtNo;
-   HashMap<String, ArrayList<String>> procedureCalls;
+   // HashMap<String, ArrayList<String>> procedureCalls;
    HashMap<String, Integer> callArgs;
    HashMap<String, Integer> maxInternalArgs;
    int currNoOfArgs;
@@ -42,7 +42,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       noSpilled = new HashMap<String, Integer>();
       stmtMap = new HashMap<Integer, BasicBlock>();
       stmtNo = 0;
-      procedureCalls = new HashMap<String, ArrayList<String>>();
+      // procedureCalls = new HashMap<String, ArrayList<String>>();
       callArgs = new HashMap<String, Integer>();
       maxInternalArgs = new HashMap<String, Integer>();
       currNoOfArgs = 0;
@@ -71,23 +71,23 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
    }
 
-   public void addProcedureCall(String procedureName) {
-      procedureCalls.get(currScope).add(procedureName);
-   }
+   // public void addProcedureCall(String procedureName) {
+   //    procedureCalls.get(currScope).add(procedureName);
+   // }
 
    public void addInternalCallArgs(int callArgs) {
       if(callArgs > maxInternalArgs.get(currScope))
          maxInternalArgs.put(currScope, callArgs);
    }
 
-   public int maxCallArgs(String procedureName) {
-      int ans = 0;
-      for(String calledProcedure : procedureCalls.get(procedureName)) {
-         int currCallArgs = callArgs.get(calledProcedure);
-         if(currCallArgs > ans) ans = currCallArgs;
-      }
-      return ans;
-   }
+   // public int maxCallArgs(String procedureName) {
+   //    int ans = 0;
+   //    for(String calledProcedure : procedureCalls.get(procedureName)) {
+   //       int currCallArgs = callArgs.get(calledProcedure);
+   //       if(currCallArgs > ans) ans = currCallArgs;
+   //    }
+   //    return ans;
+   // }
 
    public String spillStatus(String procedureName) {
       if(spillValue.get(procedureName).isEmpty()) return "NOTSPILLED";
@@ -227,7 +227,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          currScope = new String(procedureName);
          allocatedRegisters.put(currScope, new HashMap<Integer, String>());
          spillValue.put(currScope, new HashMap<Integer, Integer>());
-         procedureCalls.put(currScope, new ArrayList<String>());
+         // procedureCalls.put(currScope, new ArrayList<String>());
          maxInternalArgs.put(currScope, 0);
          n.f1.accept(this, argu);
          // currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
@@ -280,7 +280,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
-      procedureCalls.put(currScope, new ArrayList<String>());
+      // procedureCalls.put(currScope, new ArrayList<String>());
       maxInternalArgs.put(currScope, 0);
       noSpilled.put(currScope, 0);
 

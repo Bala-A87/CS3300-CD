@@ -1,0 +1,13 @@
+1
+2
+3
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(Label MT4_Change@112)
+(Label MT4_Change@112)
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(heap *0:(heap *0:(Label MT4_Start@51) 4:(Label MT4_Change@112)))
+(Label MT4_Change@112)
+0

@@ -346,6 +346,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          // Check v0 and v1 and load if required
          n.f0.accept(this, argu); 
          System.out.println("");
+         currBasicBlock.checkStoreReq();
       }
       return _ret;
    }
@@ -715,6 +716,16 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
                }
             }
          }
+      }
+
+      public void checkStoreReq() {
+         if(def.isEmpty()) return;
+         int defTemp = def.get(0);
+         if(!allocatedRegisters.get(currScope).containsKey(defTemp)) {
+            int spillLoc = getSpillLocation(defTemp);
+            System.out.println("ASTORE SPILLEDARG " + Integer.toString(spillLoc) + " v1");
+         }
+
       }
    }
 }

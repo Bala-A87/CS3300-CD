@@ -29,6 +29,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    int stmtNo;
    HashMap<String, ArrayList<String>> procedureCalls;
    HashMap<String, Integer> callArgs;
+   HashMap<String, Integer> maxInternalArgs;
    int currNoOfArgs;
    int currSpilled;
    int argsPassed;
@@ -43,6 +44,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       stmtNo = 0;
       procedureCalls = new HashMap<String, ArrayList<String>>();
       callArgs = new HashMap<String, Integer>();
+      maxInternalArgs = new HashMap<String, Integer>();
       currNoOfArgs = 0;
       currSpilled = 0;
       argsPassed = 0;
@@ -67,6 +69,15 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          spillValue.get(currScope).put(tempNo, noSpilled.get(currScope));
          causeSpill(1);
       }
+   }
+
+   public void addProcedureCall(String procedureName) {
+      procedureCalls.get(currScope).add(procedureName);
+   }
+
+   public void addInternalCallArgs(int callArgs) {
+      if(callArgs > maxInternalArgs.get(currScope))
+         maxInternalArgs.put(currScope, callArgs);
    }
 
    public int maxCallArgs(String procedureName) {
@@ -107,31 +118,49 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       argsPassed++;
    }
 
-   public void calleeSave() {
+   public void loadFirstArgs(String procedureName) {
+      int noOfArgs = callArgs.get(procedureName);
+      if(noOfArgs > 4) {
+         for(int i = 0; i < 4; i++)
+            System.out.println("MOVE s" + Integer.toString(i) + " a" + Integer.toString(i));
+      }
+      else {
+         for(int i = 0; i < noOfArgs; i++)
+            System.out.println("MOVE s" + Integer.toString(i) + " a" + Integer.toString(i));
+      }
+   }
+
+   public int calleeSave() {
+      int initialSavePosition = currSpilled;
       for(int i = 0; i < 8; i++) {
          System.out.println("ASTORE SPILLEDARG " + Integer.toString(currSpilled) + " s" + Integer.toString(i));
          currSpilled++;
       }
+      return initialSavePosition;
    }
 
-   public void callerSave() {
+   public int callerSave() {
+      int initialSavePosition = currSpilled;
       for(int i = 0; i < 10; i++) {
          System.out.println("ASTORE SPILLEDARG " + Integer.toString(currSpilled) + " t" + Integer.toString(i));
          currSpilled++;
       }
+      return initialSavePosition;
    }
 
-   public void calleeRestore() {
+   public void calleeRestore(int initialSavePosition) {
+      int savedPosition = initialSavePosition;
       for(int i = 0; i < 8; i++) {
-         System.out.println("ALOAD s" + Integer.toString(i) + " SPILLEDARG " + Integer.toString(currSpilled));
-         currSpilled++;
+         System.out.println("ALOAD s" + Integer.toString(i) + " SPILLEDARG " + Integer.toString(savedPosition));
+         savedPosition++;
       }
    }
 
-   public void callerRestore() {
+   public void callerRestore(int initialSavePosition) {
+      int savedPosition = initialSavePosition;
       for(int i = 0; i < 10; i++) {
-         System.out.println("ALOAD t" + Integer.toString(i) + " SPILLEDARG " + Integer.toString(currSpilled));
-         currSpilled++;
+         System.out.println("ALOAD t" + Integer.toString(i) + " SPILLEDARG " + Integer.toString(savedPosition));
+         savedPosition++;
       }
    }
 
@@ -199,6 +228,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          allocatedRegisters.put(currScope, new HashMap<Integer, String>());
          spillValue.put(currScope, new HashMap<Integer, Integer>());
          procedureCalls.put(currScope, new ArrayList<String>());
+         maxInternalArgs.put(currScope, 0);
          n.f1.accept(this, argu);
          // currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
@@ -221,10 +251,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          // currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
+         if(currNoOfArgs > 4) currSpilled = currNoOfArgs - 4;
+         else currSpilled = 0;
          n.f3.accept(this, argu);
-         int maxInternalArgs = maxCallArgs(procedureName);
+         int maxInternalCallArgs = maxInternalArgs.get(currScope);
          int spilledInside = noSpilled.get(procedureName);
-         System.out.println(procedureName + " [" + Integer.toString(currNoOfArgs) + "] [" + Integer.toString(spilledInside) + "] [" + Integer.toString(maxInternalArgs) + "]");
+         System.out.println(procedureName + " [" + Integer.toString(currNoOfArgs) + "] [" + Integer.toString(spilledInside) + "] [" + Integer.toString(maxInternalCallArgs) + "]");
          // Handle count of spilled args due to function calls
          n.f4.accept(this, argu);
       }
@@ -249,6 +281,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
       procedureCalls.put(currScope, new ArrayList<String>());
+      maxInternalArgs.put(currScope, 0);
       noSpilled.put(currScope, 0);
 
       n.f0.accept(this, argu);
@@ -261,10 +294,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       currScope = new String("MAIN");
       currNoOfArgs = 0;
       stmtNo = 0;
-      int maxInternalArgs = maxCallArgs("MAIN");
+      // int maxInternalArgs = maxCallArgs("MAIN");
+      int maxInternalCallArgs = maxInternalArgs.get("MAIN");
       int spilledInside = noSpilled.get("MAIN");
 
-      System.out.println("MAIN [0] [" + Integer.toString(spilledInside) + "] [" + Integer.toString(maxInternalArgs) + "]");
+      System.out.println("MAIN [0] [" + Integer.toString(spilledInside) + "] [" + Integer.toString(maxInternalCallArgs) + "]");
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -491,7 +525,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
       else {
          // Store callee-saved registers
-         calleeSave();
+         int initialSavePosition = calleeSave();
+         loadFirstArgs(currScope);
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
@@ -499,7 +534,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          System.out.println("MOVE v0 " + simpleExp);
          n.f4.accept(this, argu);
          // Load callee-saved registers
-         calleeRestore();
+         calleeRestore(initialSavePosition);
          System.out.println("END");
          System.out.println("// " + spillStatus(currScope));
       }
@@ -519,25 +554,25 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          causeSpill(10);
          n.f0.accept(this, argu);
-         n.f1.accept(this, argu);
          n.f2.accept(this, argu);
-         // passedArgs = 0;
-         n.f3.accept(this, argu);
-         // if(passedArgs > 4) causeSpill(passedArgs-4);
+         argsPassed = 0;
+         n.f3.accept(this, (A)"CALL");
+         if(argsPassed > 4) causeSpill(argsPassed-4);
+         addInternalCallArgs(argsPassed);
          n.f4.accept(this, argu);
       }
       else {
-         callerSave();
+         int initialSavePosition = callerSave();
          // Maybe keep an ArrayList to handle arguments to call?
          // Why? Just keep a counter and move to ai or passarg
          n.f0.accept(this, argu);
-         String procedureToCall = (String)n.f1.accept(this, argu);
+         String procedureToCall = (String)n.f1.accept(this, null);
          n.f2.accept(this, argu);
          argsPassed = 0;
          n.f3.accept(this, (A)"CALL");
          n.f4.accept(this, argu);
          System.out.println("CALL " + procedureToCall);
-         callerRestore();
+         callerRestore(initialSavePosition);
          System.out.print((String)argu + "v0 ");
       }
       return _ret;
@@ -551,7 +586,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       if(!build) {
-         String simpleExp = (String)n.f1.accept(this, argu);
+         String simpleExp = (String)n.f1.accept(this, null);
          System.out.print((String)argu + "HALLOCATE " + simpleExp + " ");
       }
       return _ret;
@@ -573,7 +608,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          String operator = (String)n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
-         String simpleExp = (String)n.f2.accept(this, argu);
+         String simpleExp = (String)n.f2.accept(this, null);
          System.out.print((String)argu + operator + " " + getRegister(tempNo) + " " + simpleExp + " ");
       }
       return _ret;
@@ -631,7 +666,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       // int tempNo = Integer.parseInt((String)_ret);
       if(build) {
          allocateRegister(tempNo);
-         // if("CALL".equals((String)argu)) passedArgs++;
+         if("CALL".equals((String)argu)) argsPassed++;
       }
       else {
          // Do the work

@@ -27,7 +27,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, Integer> noSpilled;
    HashMap<Integer, BasicBlock> stmtMap;
    int stmtNo;
-   // HashMap<String, ArrayList<String>> procedureCalls;
    HashMap<String, Integer> callArgs;
    HashMap<String, Integer> maxInternalArgs;
    int currNoOfArgs;
@@ -42,7 +41,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       noSpilled = new HashMap<String, Integer>();
       stmtMap = new HashMap<Integer, BasicBlock>();
       stmtNo = 0;
-      // procedureCalls = new HashMap<String, ArrayList<String>>();
       callArgs = new HashMap<String, Integer>();
       maxInternalArgs = new HashMap<String, Integer>();
       currNoOfArgs = 0;
@@ -56,6 +54,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
    public void recordDef(int tempNo) {
       stmtMap.get(stmtNo).addDef(tempNo);
+      allocateRegister(tempNo);
    }
 
    public void causeSpill(int spillCount) {
@@ -71,23 +70,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
    }
 
-   // public void addProcedureCall(String procedureName) {
-   //    procedureCalls.get(currScope).add(procedureName);
-   // }
-
    public void addInternalCallArgs(int callArgs) {
       if(callArgs > maxInternalArgs.get(currScope))
          maxInternalArgs.put(currScope, callArgs);
    }
-
-   // public int maxCallArgs(String procedureName) {
-   //    int ans = 0;
-   //    for(String calledProcedure : procedureCalls.get(procedureName)) {
-   //       int currCallArgs = callArgs.get(calledProcedure);
-   //       if(currCallArgs > ans) ans = currCallArgs;
-   //    }
-   //    return ans;
-   // }
 
    public String spillStatus(String procedureName) {
       if(spillValue.get(procedureName).isEmpty()) return "NOTSPILLED";
@@ -107,7 +93,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
    public String getCallArg(int tempNo) {
       if(allocatedRegisters.get(currScope).containsKey(tempNo)) return allocatedRegisters.get(currScope).get(tempNo);
-      System.out.println("ALOAD v0 SPILLEDARG " + Integer.toString(spillValue.get(currScope).get(tempNo)));
+      System.out.println("ALOAD v0 SPILLEDARG " + Integer.toString(getSpillLocation(tempNo)));
       return "v0";
    }
 
@@ -227,10 +213,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          currScope = new String(procedureName);
          allocatedRegisters.put(currScope, new HashMap<Integer, String>());
          spillValue.put(currScope, new HashMap<Integer, Integer>());
-         // procedureCalls.put(currScope, new ArrayList<String>());
          maxInternalArgs.put(currScope, 0);
          n.f1.accept(this, argu);
-         // currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
          if(currNoOfArgs > 4) {
             noSpilled.put(currScope, currNoOfArgs-4);
@@ -249,7 +233,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          String procedureName = (String)n.f0.accept(this, (A)"NON-NULL");  
          currScope = new String(procedureName);
          n.f1.accept(this, argu);
-         // currNoOfArgs = (int)((Integer)n.f2.accept(this, argu));
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
          if(currNoOfArgs > 4) currSpilled = currNoOfArgs - 4;
          else currSpilled = 0;
@@ -280,9 +263,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
-      // procedureCalls.put(currScope, new ArrayList<String>());
       maxInternalArgs.put(currScope, 0);
       noSpilled.put(currScope, 0);
+      callArgs.put(currScope, 0);
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -290,11 +273,21 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);      
 
+
+      // for(Map.Entry<Integer, BasicBlock> entry: stmtMap.entrySet()) {
+      //    System.out.println("Basic block: " + Integer.toString(entry.getKey()));
+      //    System.out.println("USE:");
+      //    for(int usage : entry.getValue().use) System.out.print(Integer.toString(usage) + " ");
+      //    System.out.println("");
+      //    System.out.println("DEF:");
+      //    for(int defn : entry.getValue().def) System.out.print(Integer.toString(defn) + " ");
+      //    System.out.println("");
+      // }
+
       build = false;
       currScope = new String("MAIN");
       currNoOfArgs = 0;
       stmtNo = 0;
-      // int maxInternalArgs = maxCallArgs("MAIN");
       int maxInternalCallArgs = maxInternalArgs.get("MAIN");
       int spilledInside = noSpilled.get("MAIN");
 
@@ -342,6 +335,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }    
       else {
          BasicBlock currBasicBlock = stmtMap.get(stmtNo);
+         // System.out.println("Basic block: " + stmtNo);
+         // System.out.println("USE:");
+         // for(int usage : currBasicBlock.use) System.out.print(usage + " ");
+         // System.out.println("");
+         // System.out.println("DEF:");
+         // for(int defn : currBasicBlock.def) System.out.print(defn + " ");
+         // System.out.println("");
          currBasicBlock.checkLoadReq();
          // Check v0 and v1 and load if required
          n.f0.accept(this, argu); 
@@ -423,7 +423,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          n.f0.accept(this, argu);
          int memBase = (int)((Integer)n.f1.accept(this, argu));
-         // int offset = (int)((Integer)n.f2.accept(this, argu));
          int offset = Integer.parseInt((String)n.f2.accept(this, argu));
          int tempNo = (int)((Integer)n.f3.accept(this, argu));
          System.out.print("HSTORE " + getRegister(memBase) + " " + Integer.toString(offset) + " " + getRegister(tempNo) + " ");
@@ -451,7 +450,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
          int memBase = (int)((Integer)n.f2.accept(this, argu));
-         // int offset = (int)((Integer)n.f3.accept(this, argu));
          int offset = Integer.parseInt((String)n.f3.accept(this, argu));
          System.out.print("HLOAD " + getRegister(tempNo) + " " + getRegister(memBase) + " " + Integer.toString(offset) + " ");
       }
@@ -474,7 +472,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       else {
          n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
-         // System.out.print("MOVE " + getRegister(tempNo) + " "); //call requires handling!!!!
          n.f2.accept(this, (A)("MOVE " + getRegister(tempNo) + " "));
       }
       return _ret;
@@ -557,7 +554,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f2.accept(this, argu);
          argsPassed = 0;
          n.f3.accept(this, (A)"CALL");
-         if(argsPassed > 4) causeSpill(argsPassed-4);
          addInternalCallArgs(argsPassed);
          n.f4.accept(this, argu);
       }
@@ -634,7 +630,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(SimpleExp n, A argu) {
       R _ret=n.f0.accept(this, (A)"NON-NULL");
-      // Try using which here
       if(build) {
          if(n.f0.which == 0) recordUse((Integer)_ret);
       }
@@ -643,9 +638,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             int tempNo = (Integer)_ret;
             _ret = (R)(getRegister(tempNo));
          }
-         // else if(n.f0.which == 1) {
-         //    _ret = (R)Integer.toString((Integer)_ret);
-         // }
          if(argu != null)
             System.out.print((String)argu + (String)_ret + " ");
       }
@@ -660,16 +652,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(Temp n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      // int tempNo = (int)((Integer)n.f1.accept(this, argu));
       int tempNo = Integer.parseInt((String)n.f1.accept(this, argu));
-      // _ret = n.f1.accept(this, argu);
-      // int tempNo = Integer.parseInt((String)_ret);
       if(build) {
-         allocateRegister(tempNo);
          if("CALL".equals((String)argu)) argsPassed++;
       }
       else {
-         // Do the work
          if("CALL".equals((String)argu)) passCallArg(tempNo);
       }
       _ret = (R)((Integer)tempNo);

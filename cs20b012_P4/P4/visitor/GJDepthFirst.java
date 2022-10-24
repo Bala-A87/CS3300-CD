@@ -27,6 +27,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, Integer> noSpilled;
    HashMap<Integer, BasicBlock> stmtMap;
    int stmtNo;
+   HashMap<String, Integer> callerSaveBegin;
    HashMap<String, Integer> callArgs;
    HashMap<String, Integer> maxInternalArgs;
    int currNoOfArgs;
@@ -41,6 +42,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       noSpilled = new HashMap<String, Integer>();
       stmtMap = new HashMap<Integer, BasicBlock>();
       stmtNo = 0;
+      callerSaveBegin = new HashMap<String, Integer>();
       callArgs = new HashMap<String, Integer>();
       maxInternalArgs = new HashMap<String, Integer>();
       currNoOfArgs = 0;
@@ -68,6 +70,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          spillValue.get(currScope).put(tempNo, noSpilled.get(currScope));
          causeSpill(1);
       }
+   }
+
+   public void recordCallerSave() {
+      if(callerSaveBegin.containsKey(currScope)) return;
+      callerSaveBegin.put(currScope, noSpilled.get(currScope));
+      causeSpill(10);
    }
 
    public void addInternalCallArgs(int callArgs) {
@@ -125,13 +133,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       return initialSavePosition;
    }
 
-   public int callerSave() {
-      int initialSavePosition = currSpilled;
+   public void callerSave() {
+      int savePosition = callerSaveBegin.get(currScope);
       for(int i = 0; i < 10; i++) {
-         System.out.println("ASTORE SPILLEDARG " + Integer.toString(currSpilled) + " t" + Integer.toString(i));
-         currSpilled++;
+         System.out.println("ASTORE SPILLEDARG " + Integer.toString(savePosition) + " t" + Integer.toString(i));
+         savePosition++;
       }
-      return initialSavePosition;
+      if(savePosition > currSpilled) currSpilled = savePosition + 1;
+      // return initialSavePosition;
    }
 
    public void calleeRestore(int initialSavePosition) {
@@ -142,8 +151,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       }
    }
 
-   public void callerRestore(int initialSavePosition) {
-      int savedPosition = initialSavePosition;
+   public void callerRestore() {
+      int savedPosition = callerSaveBegin.get(currScope);
       for(int i = 0; i < 10; i++) {
          System.out.println("ALOAD t" + Integer.toString(i) + " SPILLEDARG " + Integer.toString(savedPosition));
          savedPosition++;
@@ -550,8 +559,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       
       if(build) {
-         causeSpill(10);
+         // causeSpill(10);
+         recordCallerSave();
          n.f0.accept(this, argu);
+         n.f1.accept(this, argu);
          n.f2.accept(this, argu);
          argsPassed = 0;
          n.f3.accept(this, (A)"CALL");
@@ -559,7 +570,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f4.accept(this, argu);
       }
       else {
-         int initialSavePosition = callerSave();
+         callerSave();
          // Maybe keep an ArrayList to handle arguments to call?
          // Why? Just keep a counter and move to ai or passarg
          n.f0.accept(this, argu);
@@ -568,8 +579,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          argsPassed = 0;
          n.f3.accept(this, (A)"CALL");
          n.f4.accept(this, argu);
+         stmtMap.get(stmtNo).reload();
          System.out.println("CALL " + procedureToCall);
-         callerRestore(initialSavePosition);
+         callerRestore();
          System.out.print((String)argu + "v0 ");
       }
       return _ret;
@@ -718,12 +730,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          }
       }
 
+      public void reload() {
+         if(v0 != -1) {
+            int spillLoc = getSpillLocation(v0);
+            System.out.println("ALOAD v0 SPILLEDARG " + Integer.toString(spillLoc));
+         }
+         if(v1 != -1) {
+            int spillLoc = getSpillLocation(v1);
+            System.out.println("ALOAD v1 SPILLEDARG " + Integer.toString(spillLoc));
+         }
+      }
+
       public void checkStoreReq() {
          if(def.isEmpty()) return;
          int defTemp = def.get(0);
          if(!allocatedRegisters.get(currScope).containsKey(defTemp)) {
             int spillLoc = getSpillLocation(defTemp);
             System.out.println("ASTORE SPILLEDARG " + Integer.toString(spillLoc) + " v1");
+            if(spillLoc > currSpilled) currSpilled = spillLoc+1;
          }
 
       }

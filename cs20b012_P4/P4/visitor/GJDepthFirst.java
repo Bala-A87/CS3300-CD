@@ -30,6 +30,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, Boolean> internalCallMade;
    HashMap<String, Integer> callArgs;
    HashMap<String, Integer> maxInternalArgs;
+   // HashSet<String> seenLabel;
+   int countLabels;
+   HashMap<String, HashMap<String, String>> newLabel;
    int currNoOfArgs;
    int argsPassed;
 
@@ -44,6 +47,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       internalCallMade = new HashMap<String, Boolean>();
       callArgs = new HashMap<String, Integer>();
       maxInternalArgs = new HashMap<String, Integer>();
+      // seenLabel = new HashSet<String>();
+      countLabels = 0;
+      newLabel = new HashMap<String, HashMap<String, String>>();
       currNoOfArgs = 0;
       argsPassed = 0;
    }
@@ -73,6 +79,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public void addInternalCallArgs(int callArgs) {
       if(callArgs > maxInternalArgs.get(currScope))
          maxInternalArgs.put(currScope, callArgs);
+   }
+
+   public void renameLabel(String label) {
+      String nextLabel = new String("L" + Integer.toString(countLabels));
+      newLabel.get(currScope).put(label, nextLabel);
+      countLabels++;
+   }
+
+   public String getNewLabel(String oldLabel) {
+      if(!newLabel.get(currScope).containsKey(oldLabel)) return oldLabel;
+      return newLabel.get(currScope).get(oldLabel);
    }
 
    public String spillStatus(String procedureName) {
@@ -215,6 +232,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          spillValue.put(currScope, new HashMap<Integer, Integer>());
          maxInternalArgs.put(currScope, 0);
          internalCallMade.put(currScope, false);
+         newLabel.put(currScope, new HashMap<String, String>());
          n.f1.accept(this, argu);
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
          if(currNoOfArgs > 4) {
@@ -264,6 +282,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
       maxInternalArgs.put(currScope, 0);
+      newLabel.put(currScope, new HashMap<String, String>());
       noSpilled.put(currScope, 0);
       callArgs.put(currScope, 0);
 
@@ -365,7 +384,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
          recordUse(tempNo);
-         n.f2.accept(this, argu);
+         renameLabel((String)n.f2.accept(this, argu));
       }
       else {
          n.f0.accept(this, argu);
@@ -384,7 +403,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String label = (String)n.f1.accept(this, (A)"NON-NULL");
-      if(!build) System.out.print("JUMP " + label + " ");
+      if(build) renameLabel(label);
+      else System.out.print("JUMP " + label + " ");
       return _ret;
    }
 
@@ -665,8 +685,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Label n, A argu) {
       R _ret=n.f0.accept(this, argu);
-      if(!build) 
+      if(!build) {
+         _ret = (R)getNewLabel((String)_ret);
          if(argu == null) System.out.println((String)_ret);
+      }
       return _ret;
    }
 

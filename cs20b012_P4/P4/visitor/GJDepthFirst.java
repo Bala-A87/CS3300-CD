@@ -501,6 +501,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
+         stmtNo++;
+         stmtMap.put(stmtNo, new BasicBlock());
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
       }
@@ -511,6 +513,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
+         stmtNo++;
+         BasicBlock currBasicBlock = stmtMap.get(stmtNo);
+         currBasicBlock.checkLoadReq();
          String simpleExp = (String)n.f3.accept(this, argu);
          System.out.println("MOVE v0 " + simpleExp);
          n.f4.accept(this, argu);
@@ -717,7 +722,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int defTemp = def.get(0);
          if(!allocatedRegisters.get(currScope).containsKey(defTemp)) {
             int spillLoc = getSpillLocation(defTemp);
-            System.out.println("ASTORE SPILLEDARG " + Integer.toString(spillLoc) + " v1");
+            System.out.println("ASTORE SPILLEDARG " + Integer.toString(spillLoc) + " " + getRegister(defTemp));
          }
 
       }

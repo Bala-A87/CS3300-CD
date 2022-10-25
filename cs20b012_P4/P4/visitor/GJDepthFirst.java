@@ -40,6 +40,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    int argsPassed;
    HashMap<String, PriorityQueue<LiveInterval>> liveIntervals;
    HashMap<String, PriorityQueue<LiveInterval>> active;
+   HashMap<String, Boolean> freeRegisters;
 
    public GJDepthFirst() {
       build = true;
@@ -61,6 +62,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       argsPassed = 0;
       liveIntervals = new HashMap<String, PriorityQueue<LiveInterval>>();
       active = new HashMap<String, PriorityQueue<LiveInterval>>();
+      freeRegisters = new HashMap<String, Boolean>();
+      freeAllRegisters();
+   }
+
+   public void freeAllRegisters() {
+      for(String register : REGISTERS) freeRegisters.put(register, true);
+   }
+
+   public int getFreeRegister() {
+      for(int i = 0; i < 18; i++) if(freeRegisters.get(i)) return i;
+      return -1;
    }
 
    public void recordUse(int tempNo) {
@@ -86,6 +98,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          causeSpill(1);
       }
    }
+
+   // Make functions to "forcibly" allocate registers/spill 
 
    public void addInternalCallArgs(int callArgs) {
       if(callArgs > maxInternalArgs.get(currScope))
@@ -116,9 +130,24 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    }
 
    public void expireOldIntervals(int currPoint) {
-      for(LiveInterval activeInterval : active.get(currScope)) {
-         if(activeInterval.end >= currPoint) return;
-         
+      while(!active.get(currScope).isEmpty()) {
+         LiveInterval currInterval = active.get(currScope).peek();
+         if(currInterval.end >= currPoint) return;
+         freeRegisters.put(allocatedRegisters.get(currScope).get(currInterval.tempNo), true);
+         active.get(currScope).poll();
+      }
+   }
+
+   public LiveInterval getLastActiveInterval() {
+      LiveInterval ans = null;
+      for(LiveInterval currInterval : active.get(currScope)) ans = currInterval;
+      return ans;
+   }
+
+   public void spillAtInterval(LiveInterval currInterval) {
+      LiveInterval spill = getLastActiveInterval();
+      if(spill.end > currInterval.end) {
+
       }
    }
 

@@ -114,7 +114,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       currMaxInternalArgs = maxCallArgs;
       if(maxCallArgs > 4) stackSpace += maxCallArgs-4;
       System.out.println("subu $sp, $sp, " + 4*stackSpace);
-      System.out.println("sw $ra, -4($sp)");
+      System.out.println("sw $ra, -4($fp)");
       n.f9.accept(this, argu);
       
       n.f10.accept(this, argu);
@@ -216,7 +216,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f10.accept(this, argu);
       n.f11.accept(this, argu);
       //restore fp, sp
-      System.out.println("lw $fp, " + "-8($sp)");
+      System.out.println("lw $ra, " + "-4($fp)");
+      System.out.println("lw $fp, " + "-8($fp)");
+      // System.out.println("lw $fp, " + (4*stackSpace-8) + "($sp)");
       System.out.println("addu $sp, $sp, " + 4*stackSpace);
       System.out.println("j $ra");
       System.out.println("");
@@ -493,8 +495,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       // Find stack location and return (or print)
       // First check current args and determine offset above call args
       // Then check max internal args and determine where non-params start
-      if(spillLoc < currMaxInternalArgs-4) _ret = (R)(Integer.toString(4*spillLoc) + "($fp)");
-      else _ret = (R)Integer.toString(spillLoc);
+      if(spillLoc < currCallArgs-4) _ret = (R)(Integer.toString(4*spillLoc) + "($fp)");
+      else _ret = (R)(Integer.toString(4*spillLoc) + "($sp)");
       return _ret;
       
    }

@@ -22,6 +22,12 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 	boolean printLabel;
    String currScope;
    int currCallArgs;
+   int currMaxInternalArgs;
+
+   public boolean isRegister(String simpleExp) {
+      if(simpleExp.charAt(0) == '$') return true;
+      return false;
+   }
 	
    public R visit(NodeList n, A argu) {
       R _ret=null;
@@ -105,6 +111,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f6.accept(this, argu);
       n.f7.accept(this, argu);
       int maxCallArgs = Integer.parseInt((String)n.f8.accept(this, argu));
+      currMaxInternalArgs = maxCallArgs;
       if(maxCallArgs > 4) stackSpace += maxCallArgs-4;
       System.out.println("subu $sp, $sp, " + 4*stackSpace);
       System.out.println("sw $ra, -4($sp)");
@@ -197,21 +204,22 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f3.accept(this, argu);
       n.f4.accept(this, argu);
       int noSpilled = Integer.parseInt((String)n.f5.accept(this, argu));
-      int stackSpace = noSpilled + 1;
+      int stackSpace = noSpilled + 2;
       n.f6.accept(this, argu);
       n.f7.accept(this, argu);
       int maxInternalArgs = Integer.parseInt((String)n.f8.accept(this, argu));
+      currMaxInternalArgs = maxInternalArgs;
       if(maxInternalArgs > 4) stackSpace += maxInternalArgs-4;
       n.f9.accept(this, argu);
       System.out.println("subu $sp, $sp, " + 4*stackSpace);
-      //callee save
       
       n.f10.accept(this, argu);
       n.f11.accept(this, argu);
-      System.out.println("");
-      //callee restore
       //restore fp, sp
+      System.out.println("lw $fp, " + "-8($sp)");
+      System.out.println("addu $sp, $sp, " + 4*stackSpace);
       System.out.println("j $ra");
+      System.out.println("");
       n.f12.accept(this, argu);
       
       
@@ -274,7 +282,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f0.accept(this, argu);
       String register = (String)n.f1.accept(this, argu);
       String label = (String)n.f2.accept(this, argu);
-      System.out.println("beqz " + register + " " + label);
+      System.out.println("beqz " + register + ", " + label);
       return _ret;
    }
 
@@ -319,7 +327,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       String dest = (String)n.f1.accept(this, argu);
       String src = (String)n.f2.accept(this, argu);
       int offset = Integer.parseInt((String)n.f3.accept(this, argu));
-      System.out.println("lw " + dest + " " + offset + "(" + src + ")");
+      System.out.println("lw " + dest + ", " + offset + "(" + src + ")");
       
       return _ret;
    }
@@ -332,8 +340,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(MoveStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu); 
-      n.f2.accept(this, argu);
+      String dest = (String)n.f1.accept(this, argu); 
+      n.f2.accept(this, (A)dest);
       return _ret;
    }
 
@@ -344,8 +352,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(PrintStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      
+      String printExp = (String)n.f1.accept(this, argu);
+      // Requires handling, what if it is an integer? You would need li and not move
+      // Done I think
+      if(isRegister(printExp)) 
+         System.out.println("move $a0, " + printExp);
+      else
+         System.out.println("li $a0, " + printExp);
+      System.out.println("jal _print");
       return _ret;
    }
 
@@ -357,9 +371,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(ALoadStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      
+      String destReg = (String)n.f1.accept(this, argu);
+      String stackLocation = (String)n.f2.accept(this, argu);
+      System.out.println("lw " + destReg + ", " + stackLocation);
       return _ret;
    }
 
@@ -371,9 +385,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(AStoreStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      
+      String stackLocation = (String)n.f1.accept(this, argu);
+      String srcReg = (String)n.f2.accept(this, argu);
+      System.out.println("sw " + srcReg + ", " + stackLocation);
       return _ret;
    }
 
@@ -385,9 +399,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(PassArgStmt n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, argu);
-      
+      int passedArgNo = Integer.parseInt((String)n.f1.accept(this, argu));
+      String passedReg = (String)n.f2.accept(this, argu);
+      System.out.println("sw " + passedReg + ", " + 4*(passedArgNo-1) + "($sp)");
       return _ret;
    }
 
@@ -399,7 +413,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String procedureToCall = (String)n.f1.accept(this, argu);
-      //caller save
       System.out.println("jalr " + procedureToCall);
       return _ret;
    }
@@ -422,8 +435,14 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(HAllocate n, A argu) {
       R _ret=null;
       n.f0.accept(this, argu);
-      n.f1.accept(this, null);
-      
+      String hallocateExp = (String)n.f1.accept(this, null);
+      if(isRegister(hallocateExp))
+         System.out.println("move $a0, " + hallocateExp);
+      else
+         System.out.println("li $a0, " + hallocateExp);
+      System.out.println("jal _halloc");
+      String moveDest = (String)argu;
+      System.out.println("move " + moveDest + ", $v0");
       return _ret;
    }
 
@@ -434,10 +453,17 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(BinOp n, A argu) {
       R _ret=null;
-      n.f0.accept(this, argu);
-      n.f1.accept(this, argu);
-      n.f2.accept(this, null);
-      
+      String operator = (String)n.f0.accept(this, argu);
+      String op1 = (String)n.f1.accept(this, argu);
+      String op2 = (String)n.f2.accept(this, null);
+      if(operator.equals("LE")) System.out.print("sle ");
+      else if(operator.equals("NE")) System.out.print("sne ");
+      else if(operator.equals("PLUS")) System.out.print("add ");
+      else if(operator.equals("MINUS")) System.out.print("sub ");
+      else if(operator.equals("TIMES")) System.out.print("mul ");
+      else if(operator.equals("DIV")) System.out.print("div");
+      String moveDest = (String)argu;
+      System.out.println(moveDest + ", " + op1 + ", " + op2);
       return _ret;
    }
 
@@ -464,6 +490,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       int spillLoc = Integer.parseInt((String)n.f1.accept(this, argu));
+      // Find stack location and return (or print)
+      // First check current args and determine offset above call args
+      // Then check max internal args and determine where non-params start
       return _ret;
       
    }
@@ -475,7 +504,19 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(SimpleExp n, A argu) {
       R _ret=n.f0.accept(this, argu);
-      
+      if(argu != null) {
+         String moveDest = (String)argu;
+         switch(n.f0.which) {
+         case 0:
+            System.out.println("move " + moveDest + ", " + _ret);
+            break;
+         case 1:
+            System.out.println("li " + moveDest + ", " + _ret);
+            break;
+         case 2:
+            System.out.println("la " + moveDest + ", " + _ret);
+         }
+      }
       return _ret;
    }
 

@@ -111,8 +111,8 @@ function testRA {
         else
             spim -f tests/output/MIPS/mine/$name.s 1>tests/output/exec/mine/$name
         fi
-        bat tests/output/exec/mine/$name | grep -v "Loaded" > tmp
-        bat tmp > tests/output/exec/mine/$name
+        sed 1,5d tests/output/exec/mine/$name > tmp
+        cat tmp > tests/output/exec/mine/$name
         rm tmp
         if [[ $(cat tests/output/exec/correct/$name) == $(cat tests/output/exec/mine/$name) ]]
         then
@@ -174,3 +174,6 @@ if [[ $notest == 0 ]]
 then
     echo "Processing done " $pass "/" $total " passed"
 fi
+
+rm *.class
+rm ./*/*.class

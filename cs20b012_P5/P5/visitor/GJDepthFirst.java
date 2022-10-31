@@ -496,7 +496,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       // First check current args and determine offset above call args
       // Then check max internal args and determine where non-params start
       if(spillLoc < currCallArgs-4) _ret = (R)(Integer.toString(4*spillLoc) + "($fp)");
-      else _ret = (R)(Integer.toString(4*spillLoc) + "($sp)");
+      else {
+         int offset = 0;
+         if(currMaxInternalArgs > 4) offset = currMaxInternalArgs-4;
+         _ret = (R)(Integer.toString(4*(spillLoc+offset)) + "($sp)");
+      }
       return _ret;
       
    }

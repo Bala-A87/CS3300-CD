@@ -16,11 +16,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    //
    // Auto class visitors--probably don't need to be overridden.
    //
-	
-	String destReg;
-	int inArgs, outArgs;
+
 	boolean printLabel;
-   String currScope;
    int currCallArgs;
    int currMaxInternalArgs;
 
@@ -99,7 +96,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       System.out.println(".globl\tmain");
       System.out.println("main:");
       System.out.println("move $fp, $sp");
-      currScope = new String("MAIN");
       currCallArgs = 0;
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -197,7 +193,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       System.out.println("sw $fp, -8($sp)");
       System.out.println("move $fp, $sp");
       System.out.println("sw $ra, -4($fp)");
-      currScope = new String(procedureName);
       n.f1.accept(this, argu);
       int callArgs = Integer.parseInt((String)n.f2.accept(this, argu));
       currCallArgs = callArgs;
@@ -218,7 +213,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       //restore fp, sp
       System.out.println("lw $ra, " + "-4($fp)");
       System.out.println("lw $fp, " + "-8($fp)");
-      // System.out.println("lw $fp, " + (4*stackSpace-8) + "($sp)");
       System.out.println("addu $sp, $sp, " + 4*stackSpace);
       System.out.println("j $ra");
       System.out.println("");
@@ -355,8 +349,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String printExp = (String)n.f1.accept(this, argu);
-      // Requires handling, what if it is an integer? You would need li and not move
-      // Done I think
       if(isRegister(printExp)) 
          System.out.println("move $a0, " + printExp);
       else

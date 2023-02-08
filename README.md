@@ -1,6 +1,6 @@
 # CS3300-CD
 Lab assignments done as part of CS3300 - Compiler Design. <br>
-<a src="https://kcsrk.info/cs3300_m22/">Link</a> to the course website for reference.
+[Link](https://kcsrk.info/cs3300_m22/) to the course website for reference.
 
 ## Assignments
 
@@ -17,13 +17,13 @@ The goal of the lab assignments is to build an end-to-end simple compiler for a 
 5. MiniRA to MIPS Assembly
     - Build a MiniRA to MIPS assembly translator using JTB (language coded in: Java)
 
-Interpreters for MicroIR and MiniRA can be found on the course website, under the corresponding assignments. All specifications are available on the <a src="https://github.com/kayceesrk/cs3300_m22/blob/main/assets/">instructor's course GitHub</a>.
+Interpreters for MicroIR and MiniRA can be found on the course website, under the corresponding assignments. All specifications are available on the instructor's [course GitHub](https://github.com/kayceesrk/cs3300_m22/blob/main/assets/).
 
 ## Future changes:
 - Make assignment-wise READMEs with instructions to run (install required software as well) and clean up. For now, installations and running instructions can be found on the course webpage.
 
 ## Credits:
-<a src="https://www.cs.princeton.edu/~appel/modern/c/software/flex/">Flex</a> <br>
-<a src="https://www.gnu.org/software/bison/manual/">Bison</a> <br>
-<a src="http://compilers.cs.ucla.edu/jtb/">JTB</a> <br>
-<a src="http://web.cs.ucla.edu/~palsberg/course/cs132/">Linear Scan algorithm paper</a>
+[Flex](https://www.cs.princeton.edu/~appel/modern/c/software/flex/) <br>
+[Bison](https://www.gnu.org/software/bison/manual/) <br>
+[JTB](http://compilers.cs.ucla.edu/jtb/) <br>
+[Linear scan algorithm paper](http://web.cs.ucla.edu/~palsberg/course/cs132/)

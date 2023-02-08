@@ -25,22 +25,16 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    HashMap<String, HashMap<Integer, String>> allocatedRegisters;
    HashMap<String, HashMap<Integer, Integer>> spillValue;
    HashMap<String, Integer> noSpilled;
-   HashMap<String, HashMap<Integer, BasicBlock>> stmtMap;
-   HashMap<String, HashMap<Integer, Integer>> firstSeen;
-   HashMap<String, HashMap<Integer, Integer>> lastSeen;
+   HashMap<Integer, BasicBlock> stmtMap;
    int stmtNo;
    HashMap<String, Boolean> internalCallMade;
    HashMap<String, Integer> callArgs;
    HashMap<String, Integer> maxInternalArgs;
+   // HashSet<String> seenLabel;
    int countLabels;
    HashMap<String, HashMap<String, String>> newLabel;
    int currNoOfArgs;
    int argsPassed;
-   HashMap<String, PriorityQueue<LiveInterval>> liveIntervals;
-   HashMap<String, PriorityQueue<LiveInterval>> active;
-   HashMap<String, Boolean> freeRegisters;
-   ArrayList<LiveInterval> tempStorage;
-   HashMap<String, HashMap<String, Integer>> labelMap;
 
    public GJDepthFirst() {
       build = true;
@@ -48,72 +42,38 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       allocatedRegisters = new HashMap<String, HashMap<Integer, String>>();
       spillValue = new HashMap<String, HashMap<Integer, Integer>>();
       noSpilled = new HashMap<String, Integer>();
-      stmtMap = new HashMap<String, HashMap<Integer, BasicBlock>>();
-      firstSeen = new HashMap<String, HashMap<Integer, Integer>>();
-      lastSeen = new HashMap<String, HashMap<Integer, Integer>>();
+      stmtMap = new HashMap<Integer, BasicBlock>();
       stmtNo = 0;
       internalCallMade = new HashMap<String, Boolean>();
       callArgs = new HashMap<String, Integer>();
       maxInternalArgs = new HashMap<String, Integer>();
+      // seenLabel = new HashSet<String>();
       countLabels = 0;
       newLabel = new HashMap<String, HashMap<String, String>>();
       currNoOfArgs = 0;
       argsPassed = 0;
-      liveIntervals = new HashMap<String, PriorityQueue<LiveInterval>>();
-      active = new HashMap<String, PriorityQueue<LiveInterval>>();
-      freeRegisters = new HashMap<String, Boolean>();
-      freeAllRegisters();
-      tempStorage = new ArrayList<LiveInterval>();
-      labelMap = new HashMap<String, HashMap<String, Integer>>();
    }
 
-   public void freeAllRegisters() {
-      for(String register : REGISTERS) freeRegisters.put(register, true);
-   }
-
-   public int getFreeRegister() {
-      for(int i = 0; i < 18; i++) if(freeRegisters.get(REGISTERS[i])) {
-         freeRegisters.put(REGISTERS[i], false);
-         return i;
-      }
-      return -1;
-   }
-
-   public void recordUse(int tempNo, boolean saveUsage) {
-      if(saveUsage) stmtMap.get(currScope).get(stmtNo).addUse(tempNo);
-      if(!firstSeen.get(currScope).containsKey(tempNo)) firstSeen.get(currScope).put(tempNo, stmtNo);
-      lastSeen.get(currScope).put(tempNo, stmtNo);
+   public void recordUse(int tempNo) {
+      stmtMap.get(stmtNo).addUse(tempNo);
    }
 
    public void recordDef(int tempNo) {
-      stmtMap.get(currScope).get(stmtNo).addDef(tempNo);
-      if(!firstSeen.get(currScope).containsKey(tempNo)) firstSeen.get(currScope).put(tempNo, stmtNo);
-      lastSeen.get(currScope).put(tempNo, stmtNo);
-      // allocateRegister(tempNo); //change
+      stmtMap.get(stmtNo).addDef(tempNo);
+      allocateRegister(tempNo);
    }
 
    public void causeSpill(int spillCount) {
       noSpilled.put(currScope, noSpilled.get(currScope) + spillCount);
    }
 
-   // public void allocateRegister(int tempNo) {
-   //    if(allocatedRegisters.get(currScope).size() < REGISTERS.length && !allocatedRegisters.get(currScope).containsKey(tempNo))
-   //       allocatedRegisters.get(currScope).put(tempNo, REGISTERS[allocatedRegisters.get(currScope).size()]);
-   //    else if(!allocatedRegisters.get(currScope).containsKey(tempNo) && !spillValue.get(currScope).containsKey(tempNo)) {
-   //       spillValue.get(currScope).put(tempNo, noSpilled.get(currScope));
-   //       causeSpill(1);
-   //    }
-   // }
-
-   // Make functions to "forcibly" allocate registers/spill 
-
-   public void spillTemp(int tempNo) {
-      spillValue.get(currScope).put(tempNo, noSpilled.get(currScope));
-      causeSpill(1);
-   }
-
-   public void assignRegister(int tempNo, String register) {
-      allocatedRegisters.get(currScope).put(tempNo, register);
+   public void allocateRegister(int tempNo) {
+      if(allocatedRegisters.get(currScope).size() < REGISTERS.length && !allocatedRegisters.get(currScope).containsKey(tempNo))
+         allocatedRegisters.get(currScope).put(tempNo, REGISTERS[allocatedRegisters.get(currScope).size()]);
+      else if(!allocatedRegisters.get(currScope).containsKey(tempNo) && !spillValue.get(currScope).containsKey(tempNo)) {
+         spillValue.get(currScope).put(tempNo, noSpilled.get(currScope));
+         causeSpill(1);
+      }
    }
 
    public void addInternalCallArgs(int callArgs) {
@@ -127,72 +87,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       countLabels++;
    }
 
-   public void getLiveIntervals() {
-      liveIntervals.put(currScope, new PriorityQueue<LiveInterval>(5, new IncreasingStartPoint()));
-      active.put(currScope, new PriorityQueue<LiveInterval>(5, new IncreasingEndPoint()));
-      for(Map.Entry<Integer, Integer> entry : firstSeen.get(currScope).entrySet()) {
-         int tempNo = entry.getKey();
-         int intervalBegin = entry.getValue();
-         int intervalEnd = lastSeen.get(currScope).get(tempNo);
-         // if(intervalBegin == -1) active.get(currScope).add()
-         LiveInterval currInterval = new LiveInterval(tempNo, intervalBegin, intervalEnd);
-         if(intervalBegin == -1) {
-            if(tempNo < callArgs.get(currScope)) active.get(currScope).add(currInterval);
-         }
-         else liveIntervals.get(currScope).add(currInterval);
-      }
-   }
-
-   public void linearScanRegisterAllocation() {
-      while(!liveIntervals.get(currScope).isEmpty()) {
-         LiveInterval currInterval = liveIntervals.get(currScope).poll();
-         expireOldIntervals(currInterval.begin);
-         if(active.get(currScope).size() == 18) spillAtInterval(currInterval);
-         else {
-            // allocatedRegisters.get(currScope).put(currInterval.tempNo, REGISTERS[getFreeRegister()]);
-            assignRegister(currInterval.tempNo, REGISTERS[getFreeRegister()]);
-            active.get(currScope).add(currInterval);
-         }
-      }
-   }
-
-   public void expireOldIntervals(int currPoint) {
-      while(!active.get(currScope).isEmpty()) {
-         LiveInterval currInterval = active.get(currScope).peek();
-         if(currInterval.end >= currPoint) return;
-         freeRegisters.put(allocatedRegisters.get(currScope).get(currInterval.tempNo), true);
-         active.get(currScope).poll();
-      }
-   }
-
-   public LiveInterval getLastActiveInterval() {
-      // LiveInterval ans = null;
-      // for(LiveInterval currInterval : active.get(currScope)) ans = currInterval;
-      // return ans;
-
-      // ArrayList<LiveInterval> tempStorage = new ArrayList<LiveInterval>();
-      while(!active.get(currScope).isEmpty()) tempStorage.add(active.get(currScope).poll());
-      LiveInterval ans = null;
-      for(LiveInterval currInterval : tempStorage) {
-         ans = currInterval;
-         active.get(currScope).add(currInterval);
-      }
-      tempStorage.clear();
-      return ans;
-   }
-
-   public void spillAtInterval(LiveInterval currInterval) {
-      LiveInterval spill = getLastActiveInterval();
-      if(spill.end > currInterval.end) {
-         assignRegister(currInterval.tempNo, allocatedRegisters.get(currScope).get(spill.tempNo));
-         allocatedRegisters.get(currScope).remove(spill.tempNo);
-         spillTemp(spill.tempNo);
-         active.get(currScope).remove(spill);
-         active.get(currScope).add(currInterval);
-      }
-      else spillTemp(currInterval.tempNo);
-   }
-
    public String getNewLabel(String oldLabel) {
       if(!newLabel.get(currScope).containsKey(oldLabel)) return oldLabel;
       return newLabel.get(currScope).get(oldLabel);
@@ -204,12 +98,13 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    }
 
    public int getSpillLocation(int tempNo) {
+      if(tempNo < callArgs.get(currScope)) return tempNo-4;
       return spillValue.get(currScope).get(tempNo);
    }
 
    public String getRegister(int tempNo) {
       if(allocatedRegisters.get(currScope).containsKey(tempNo)) return allocatedRegisters.get(currScope).get(tempNo);
-      if(stmtMap.get(currScope).get(stmtNo).v0 == tempNo) return "v0";
+      if(stmtMap.get(stmtNo).v0 == tempNo) return "v0";
       return "v1";
    }
 
@@ -331,55 +226,39 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
 
       if(build) {
-         String procedureName = (String)n.f0.accept(this, (A)"NON-NULL");  
+         String procedureName = (String)n.f0.accept(this, argu);  
          currScope = new String(procedureName);
          allocatedRegisters.put(currScope, new HashMap<Integer, String>());
          spillValue.put(currScope, new HashMap<Integer, Integer>());
          maxInternalArgs.put(currScope, 0);
          internalCallMade.put(currScope, false);
          newLabel.put(currScope, new HashMap<String, String>());
-         stmtNo = 0;
-         stmtMap.put(currScope, new HashMap<Integer, BasicBlock>());
-         firstSeen.put(currScope, new HashMap<Integer, Integer>());
-         lastSeen.put(currScope, new HashMap<Integer, Integer>());
          n.f1.accept(this, argu);
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
-         labelMap.put(currScope, new HashMap<String, Integer>());
-         // if(currNoOfArgs > 4) {
-         //    noSpilled.put(currScope, 0);
-         //    for(int i = 4; i < currNoOfArgs; i++) spillTemp(i);
-         // }
-         // else {
-         //    noSpilled.put(currScope, 0);
-         // }
-         noSpilled.put(currScope, 0);
-         if(currNoOfArgs > 4) for(int i = 4; i < currNoOfArgs; i++) spillTemp(i);
+         if(currNoOfArgs > 4) {
+            noSpilled.put(currScope, currNoOfArgs-4);
+            for(int i = 0; i < 4; i++) allocateRegister(i);
+         }
+         else {
+            noSpilled.put(currScope, 0);
+            for(int i = 0; i < currNoOfArgs; i++) allocateRegister(i);
+         }
          causeSpill(8);
          callArgs.put(currScope, currNoOfArgs);
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
-         for(int i = 0; i < currNoOfArgs; i++) {
-            firstSeen.get(currScope).put(i, -1);
-            lastSeen.get(currScope).put(i, Integer.MAX_VALUE);
-         }
       }
       else {
          String procedureName = (String)n.f0.accept(this, (A)"NON-NULL");  
          currScope = new String(procedureName);
          n.f1.accept(this, argu);
-         freeAllRegisters();
          currNoOfArgs = Integer.parseInt((String)n.f2.accept(this, argu));
-         if(currNoOfArgs > 4) for(int i = 0; i < 4; i++) assignRegister(i, REGISTERS[getFreeRegister()]);
-         else for(int i = 0; i < currNoOfArgs; i++) assignRegister(i, REGISTERS[getFreeRegister()]);
-         getLiveIntervals();
-         linearScanRegisterAllocation();
          n.f3.accept(this, argu);
          int maxInternalCallArgs = maxInternalArgs.get(currScope);
          int spilledInside = noSpilled.get(procedureName);
          if(internalCallMade.get(currScope)) spilledInside += 10;
          System.out.println(procedureName + " [" + Integer.toString(currNoOfArgs) + "] [" + Integer.toString(spilledInside) + "] [" + Integer.toString(maxInternalCallArgs) + "]");
          // Handle count of spilled args due to function calls
-         stmtNo = 0;
          n.f4.accept(this, argu);
       }
 
@@ -403,15 +282,9 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       allocatedRegisters.put(currScope, new HashMap<Integer, String>());
       spillValue.put(currScope, new HashMap<Integer, Integer>());
       maxInternalArgs.put(currScope, 0);
-      internalCallMade.put(currScope, false);
       newLabel.put(currScope, new HashMap<String, String>());
       noSpilled.put(currScope, 0);
       callArgs.put(currScope, 0);
-      stmtNo = 0;
-      stmtMap.put(currScope, new HashMap<Integer, BasicBlock>());
-      firstSeen.put(currScope, new HashMap<Integer, Integer>());
-      lastSeen.put(currScope, new HashMap<Integer, Integer>());
-      labelMap.put(currScope, new HashMap<String, Integer>());
 
       n.f0.accept(this, argu);
       n.f1.accept(this, argu);
@@ -423,9 +296,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       currScope = new String("MAIN");
       currNoOfArgs = 0;
       stmtNo = 0;
-      freeAllRegisters();
-      getLiveIntervals();
-      linearScanRegisterAllocation();
       int maxInternalCallArgs = maxInternalArgs.get("MAIN");
       int spilledInside = noSpilled.get("MAIN");
       if(internalCallMade.get("MAIN")) spilledInside += 10;
@@ -469,13 +339,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;  
       stmtNo++;
       if(build) {
-         stmtMap.get(currScope).put(stmtNo, new BasicBlock());
+         stmtMap.put(stmtNo, new BasicBlock());
          n.f0.accept(this, argu);  
-         if(n.f0.which != 3)
-            stmtMap.get(currScope).get(stmtNo).addSucc(stmtNo+1);
       }    
       else {
-         BasicBlock currBasicBlock = stmtMap.get(currScope).get(stmtNo);
+         BasicBlock currBasicBlock = stmtMap.get(stmtNo);
          currBasicBlock.checkLoadReq();
          // Check v0 and v1 and load if required
          n.f0.accept(this, argu); 
@@ -515,10 +383,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
-         recordUse(tempNo, true);
-         String label = (String)n.f2.accept(this, (A)"NON-NULL");
-         renameLabel(label);
-         stmtMap.get(currScope).get(stmtNo).addSucc(label);
+         recordUse(tempNo);
+         renameLabel((String)n.f2.accept(this, argu));
       }
       else {
          n.f0.accept(this, argu);
@@ -537,10 +403,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       R _ret=null;
       n.f0.accept(this, argu);
       String label = (String)n.f1.accept(this, (A)"NON-NULL");
-      if(build) {
-         renameLabel(label);
-         stmtMap.get(currScope).get(stmtNo).addSucc(label);
-      }
+      if(build) renameLabel(label);
       else System.out.print("JUMP " + label + " ");
       return _ret;
    }
@@ -556,10 +419,10 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          n.f0.accept(this, argu);
          int memBase = (int)((Integer)n.f1.accept(this, argu));
-         recordUse(memBase, true);
+         recordUse(memBase);
          n.f2.accept(this, argu);
          int tempNo = (int)((Integer)n.f3.accept(this, argu));
-         recordUse(tempNo, true);
+         recordUse(tempNo);
       }
       else {
          n.f0.accept(this, argu);
@@ -584,7 +447,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
          recordDef(tempNo);
          int memBase = (int)((Integer)n.f2.accept(this, argu));
-         recordUse(memBase, true);
+         recordUse(memBase);
          n.f3.accept(this, argu);
       }
       else {
@@ -658,9 +521,8 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f0.accept(this, argu);
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
-         // stmtMap.get(currScope).get(stmtNo).addSucc(stmtNo+1);
          stmtNo++;
-         stmtMap.get(currScope).put(stmtNo, new BasicBlock());
+         stmtMap.put(stmtNo, new BasicBlock());
          n.f3.accept(this, argu);
          n.f4.accept(this, argu);
       }
@@ -672,7 +534,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          n.f1.accept(this, argu);
          n.f2.accept(this, argu);
          stmtNo++;
-         BasicBlock currBasicBlock = stmtMap.get(currScope).get(stmtNo);
+         BasicBlock currBasicBlock = stmtMap.get(stmtNo);
          currBasicBlock.checkLoadReq();
          String simpleExp = (String)n.f3.accept(this, argu);
          System.out.println("MOVE v0 " + simpleExp);
@@ -713,7 +575,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
          argsPassed = 0;
          n.f3.accept(this, (A)"CALL");
          n.f4.accept(this, argu);
-         stmtMap.get(currScope).get(stmtNo).reload();
+         stmtMap.get(stmtNo).reload();
          System.out.println("CALL " + procedureToCall);
          callerRestore();
          System.out.print((String)argu + "v0 ");
@@ -745,7 +607,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       if(build) {
          n.f0.accept(this, argu);
          int tempNo = (int)((Integer)n.f1.accept(this, argu));
-         recordUse(tempNo, true);
+         recordUse(tempNo);
          n.f2.accept(this, argu);
       }
       else {
@@ -778,7 +640,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
    public R visit(SimpleExp n, A argu) {
       R _ret=n.f0.accept(this, (A)"NON-NULL");
       if(build) {
-         if(n.f0.which == 0) recordUse((Integer)_ret, true);
+         if(n.f0.which == 0) recordUse((Integer)_ret);
       }
       else {
          if(n.f0.which == 0) {
@@ -801,10 +663,7 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
       n.f0.accept(this, argu);
       int tempNo = Integer.parseInt((String)n.f1.accept(this, argu));
       if(build) {
-         if("CALL".equals((String)argu)) {
-            argsPassed++;
-            recordUse(tempNo, false);
-         }
+         if("CALL".equals((String)argu)) argsPassed++;
       }
       else {
          if("CALL".equals((String)argu)) passCallArg(tempNo);
@@ -826,8 +685,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
     */
    public R visit(Label n, A argu) {
       R _ret=n.f0.accept(this, argu);
-      if(build) 
-         if(argu == null) labelMap.get(currScope).put((String)_ret, stmtNo+1);
       if(!build) {
          _ret = (R)getNewLabel((String)_ret);
          if(argu == null) System.out.println((String)_ret);
@@ -837,15 +694,11 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
    class BasicBlock {
       ArrayList<Integer> use, def;
-      ArrayList<Integer> succBlocks;
-      String succLabel;
       int v0, v1;
 
       public BasicBlock() {
          use = new ArrayList<Integer>();
          def = new ArrayList<Integer>();
-         succBlocks = new ArrayList<Integer>();
-         succLabel = new String("");
          v0 = -1;
          v1 = -1;
       }
@@ -856,14 +709,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
 
       public void addDef(int defTemp) {
          def.add(defTemp);
-      }
-
-      public void addSucc(int succ) {
-         succBlocks.add(succ);
-      }
-
-      public void addSucc(String succLabel) {
-         this.succLabel = new String(succLabel);
       }
 
       public void checkLoadReq() {
@@ -902,51 +747,6 @@ public class GJDepthFirst<R,A> implements GJVisitor<R,A> {
             System.out.println("ASTORE SPILLEDARG " + Integer.toString(spillLoc) + " " + getRegister(defTemp));
          }
 
-      }
-
-      public boolean isParent(BasicBlock childBlock) {
-         if(this == childBlock) return true;
-         boolean result = false;
-         for(int blockNo : succBlocks) result = result || stmtMap.get(currScope).get(blockNo).isParent(childBlock);
-         if(!succLabel.equals("")) result = result || stmtMap.get(currScope).get(labelMap.get(currScope).get(succLabel)).isParent(childBlock);
-         return result;
-      }
-   }
-
-   class LiveInterval {
-      int tempNo;
-      int begin, end;
-
-      public LiveInterval(int tempNo, int begin, int end) {
-         this.tempNo = tempNo;
-         this.begin = begin;
-         this.end = end;
-      }
-   }
-
-   class IncreasingStartPoint implements Comparator<LiveInterval> {
-      public int compare(LiveInterval interval1, LiveInterval interval2) {
-         // if(interval1.begin < interval2.begin) return -1;
-         // else if(interval1.begin > interval2.begin) return 1;
-         // return 0;
-         BasicBlock begin1 = stmtMap.get(currScope).get(interval1.begin);
-         BasicBlock begin2 = stmtMap.get(currScope).get(interval2.begin);
-         if(begin1.isParent(begin2)) return -1;
-         else if((begin2).isParent(begin1)) return 1;
-         return 0;
-      }
-   }
-
-   class IncreasingEndPoint implements Comparator<LiveInterval> {
-      public int compare(LiveInterval interval1, LiveInterval interval2) {
-         // if(interval1.end < interval2.end) return -1;
-         // else if(interval1.end > interval2.end) return 1;
-         // return 0;
-         BasicBlock end1 = stmtMap.get(currScope).get(interval1.end);
-         BasicBlock end2 = stmtMap.get(currScope).get(interval2.end);
-         if(end1.isParent(end2)) return -1;
-         else if((end2).isParent(end1)) return 1;
-         return 0;
       }
    }
 }
